@@ -269,8 +269,6 @@ def writeHTMLfile(file_name):
     writeHTMLimage(f,'diff_mcd','diff_mcd.png')
     writeHTMLimage(f,'smooth_abs','smooth_abs.png')
     writeHTMLspacer(f,'</div>\n<div>')
-    f.write('<p>Comment for Dr. Stagg: <i>Although the data is fit very poorly below, the function fit is correct to my knowledge. This seems to moreso show how badly the experiment data lines up with the fit. Definitely need to re-run these experiments.</i> ¯\_(ツ)_/¯</b>')
-    writeHTMLspacer(f,'</div>\n<div>')
     #These next few most certainly deserve a loop... I'll get around to it eventually...
     writeHTMLimage(f,'2T_fit','2T_fit.png')
     writeHTMLimage(f,'4T_fit','4T_fit.png')
