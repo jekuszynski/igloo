@@ -70,7 +70,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)'):
     plt.ylabel('MCD (mdeg)')
     plt.xlim(1.55,.75)
     plt.style.use('seaborn-paper')
-    plt.savefig(op + '_mcd',dpi=100,transparent=True,bbox_inches='tight')
+    plt.savefig(op + '_mcd',dpi=100,transparent=False,bbox_inches='tight')
     plt.show()
 
 def calc_raw_avg_mcd(dic): #need to define this before finding the mcd difference
