@@ -58,7 +58,7 @@ def parse_mcd_tests(path):
     #     ax.scatter(x,y,label=name,color=cmap(norm(c.values)))
     #     ax.legend(ncol=5)
 
-def plot_mcd(dic,op='avg',x_axis='Energy (eV)'):
+def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata='mdeg'):
     fig,ax=plt.subplots(figsize=(4,2))
     # norm=plt.Normalize(-10,10) #optional to remove discrete H bar divisions
     norm=colors.BoundaryNorm(np.linspace(-10,10,11),ncolors=256)
@@ -66,7 +66,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)'):
     fig.colorbar(sm,ticks=range(-10,11,2),label='H (T)') #make color bar based on H (T) for plot
     for df in dic.values():
         #Dr. Seaborn or: How I Learned to Stop Worrying and Love sns.lineplot. Such efficiency. Much wow.
-        sns.lineplot(data=df,x='energy',y='mdeg', linewidth=0.6,
+        sns.lineplot(data=df,x=xdata,y=ydata, linewidth=0.6,
                     hue='field',hue_norm=(-10,10),
                     palette=sns.color_palette('coolwarm_r',as_cmap=True),
                     legend=None)
@@ -79,7 +79,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)'):
     plt.ylabel('MCD (mdeg)')
     plt.xlim(1.55,.75)
     plt.style.use('seaborn-paper')
-    plt.savefig(op + '_mcd',dpi=100,transparent=False,bbox_inches='tight')
+    plt.savefig(op + '_mcd_' + title,dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
 
 def calc_raw_avg_mcd(dic): #need to define this before finding the mcd difference
@@ -156,12 +156,18 @@ def parse_abs(path):
     d_abs = {}
     for root, dirs, files in os.walk(path): #walk along all files in directory given a path
         for num, name in enumerate(files): #for each file in list of files...
-            if "blank" or "ems" in str.lower(name): #remove any test files performed during data acqusition
-                f = re.search('.*(?=_A)',name).group(0) #search for beginning of file name "#T_" and set as name for df. Man this was difficult to figure out syntactically. 
-                # print("Adding", f + "...") #uncomment to check files are being added/named correctly
+            if "blank" in str.lower(name): #select for blank and ems file
+                dic_name="Blank"
+                # print("Adding", dic_name + "...") #uncomment to check files are being added/named correctly
                 df=pd.read_table(path+name, sep='\t',names=['wavelength','pemx','pemy','chpx','chpy','deltaA']) #create dataframe for each file
                 df['energy']=1240/df['wavelength'] #calculate energy from wavelength
-                d_abs[f] = df #send dataframe to dictionary
+                d_abs[dic_name] = df #send dataframe to dictionary
+            if "ems" or "sample" in str.lower(name):
+                dic_name="Ems"
+                # print("Adding", dic_name + "...") #uncomment to check files are being added/named correctly
+                df=pd.read_table(path+name, sep='\t',names=['wavelength','pemx','pemy','chpx','chpy','deltaA']) #create dataframe for each file
+                df['energy']=1240/df['wavelength'] #calculate energy from wavelength
+                d_abs[dic_name] = df #send dataframe to dictionary
     df_abs=pd.DataFrame(data=(d_abs['Ems']['wavelength'], d_abs['Ems']['energy'], d_abs['Ems']['chpx'], d_abs['Blank']['chpx'])).transpose() #make dataframe from ems/blank dictionary
     df_abs.columns=['wavelength','energy','ems','blank'] #setup columns
     df_abs['absorbance']=(2-np.log10(100 * df_abs['ems'] / df_abs['blank'])) #calculate absorbance from emission and blank data
@@ -300,22 +306,56 @@ def writeHTMLfile(file_name):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/users/roflc/Desktop/MCD 11-11-20/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/users/roflc/Desktop/Abs 11-11-20/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/users/roflc/Desktop/MCD 03-15-21 v2/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/users/roflc/Desktop/ABS 03-15-21/") #calculated abs data in dataframe
 
 '''perform mcd experimental data operations'''
-plot_mcd(raw_mcd_dic,'raw') #plot raw experimental mcd data
+plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
 df_avgs = calc_raw_avg_mcd(raw_mcd_dic) #
-plot_mcd(df_avgs,'avg')
-df_diff = calc_diff_mcd(df_avgs)
-plot_diff_mcd(df_diff)
+plot_mcd(df_avgs,'avg',title='sample')
+# df_diff = calc_diff_mcd(df_avgs)
+# plot_diff_mcd(df_diff)
 
 '''perform mcd difference calculation'''
-raw_mcd_dic_blank = parse_mcd("") 
-for field, df in raw_mcd_dic.items():
-    diff_df = DataFrame()
-    diff_df[field] = raw_mcd_dic[field][df]['deltaA'] - raw_mcd_dic_blank[field][df]['deltaA']
-    print (diff_df)
+raw_mcd_dic_blank = parse_mcd("/mnt/c/users/roflc/Desktop/MCD 03-15-21 Blank/")
+plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
+df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
+plot_mcd(df_blank_avgs,'avg',title='blank')
+
+# make this a function, finds diff between sample and blank.
+diff_df={}
+for name, df in df_avgs.items():
+    for df_blank in df_blank_avgs.values():
+        diff_df[name] = pd.DataFrame()
+        diff_df[name] = df - df_blank #take difference of all values
+        diff_df[name]['energy'] = df['energy'] #fix energy
+        diff_df[name]['field'] = df['field'] #fix field
+        diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
+plot_mcd(diff_df,'avg',title='diff')
+
+# make this a function, finds diff between sample and blank using total PEM signal.
+all_pem_channels_added_diff_df={}
+for name, df in df_avgs.items():
+    for df_blank in df_blank_avgs.values():
+        all_pem_channels_added_diff_df[name] = pd.DataFrame()
+        all_pem_channels_added_diff_df[name] = df - df_blank #take difference of all values
+        all_pem_channels_added_diff_df[name]['energy'] = df['energy'] #fix energy
+        all_pem_channels_added_diff_df[name]['field'] = df['field'] #fix field
+        all_pem_channels_added_diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
+        all_pem_channels_added_diff_df[name]['samp_test'] = (df['pemx'] + df['pemy']) / (df['chpx']+df['chpy'])
+        all_pem_channels_added_diff_df[name]['blank_test'] = (df_blank['pemx'] + df_blank['pemy']) / (df_blank['chpx']+df_blank['chpy'])
+        all_pem_channels_added_diff_df[name]['sub_test'] = all_pem_channels_added_diff_df[name]['samp_test'] - all_pem_channels_added_diff_df[name]['blank_test']
+        all_pem_channels_added_diff_df[name]['sub_test_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['sub_test'] - all_pem_channels_added_diff_df['0']['sub_test']) * 32982
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_test3',ydata='sub_test_zero_subtracted')
+
+sys.exit()
+
+# for name, df in dic.items():
+#         df_diff[name] = pd.DataFrame()
+#             if op=='add':
+#                 df_diff[name] = df + dic['-' + name] #add positive and negative dictionary entries
+#                 df_diff[name]['energy'] = df['energy'] #fix energy back to original values
+#                 df_diff[name]['field'] = df['field'] #fix field back to original values
 
 '''perform absorbance simulation data fitting operations'''
 plot_abs(df_abs)
@@ -324,3 +364,4 @@ average_ev, std_dev_ev, average_m, std_dev_m = calc_effective_mass_and_plot(fit_
 
 '''write HTML file report'''
 writeHTMLfile('mcd.html')
+ 
