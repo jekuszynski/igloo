@@ -73,9 +73,9 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
     if x_axis=='Energy (eV)':
         plt.xlabel(x_axis)
     if op=='raw':
-        plt.title("Raw MCD")
+        plt.title("Raw MCD " + title)
     if op=='avg':
-        plt.title("Averaged MCD")
+        plt.title("Averaged MCD " + title)
     plt.ylabel('MCD (mdeg)')
     plt.xlim(1.55,.75)
     plt.style.use('seaborn-paper')
@@ -178,16 +178,16 @@ def plot_abs(df,op='smooth',x_axis='energy'):
     fig,ax=plt.subplots(figsize=(4,2))
     if x_axis=='energy':
         plt.xlabel('Energy (eV)')
-    # if op=='raw':
-    #     plt.title("Raw Absorbance")
-    #     sns.lineplot(data=df,x='energy',y='absorbance',c='Black')
+    if op=='raw':
+        plt.title("Raw Absorbance")
+        sns.lineplot(data=df,x='energy',y='absorbance',color='Black')
     if op=='smooth':
         plt.title("Smoothed Absorbance")
         sns.lineplot(data=df,x='energy',y='smoothed_absorbance',color='Black')
     plt.ylabel('Absorbance (a.u.)')
     plt.xlim(2.0,0.75)
     plt.style.use('seaborn-paper')
-    plt.savefig(op + '_abs',dpi=100,transparent=True,bbox_inches='tight')
+    plt.savefig(op + '_abs',dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
 
 def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and RCP from base abs
@@ -221,43 +221,44 @@ def func(x,ev): #define simulated mcd function from absorbance spectrum
     coeff=poly.polyfit(df_abs['energy'],df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x+ev,coeff) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x-ev,coeff) #find y from -ev shifted RCP spectrum
-    return LCP-RCP #return y from LCP-RCP
+    return RCP-LCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
 
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
     m_list=[]
     for field in diff_dic.keys():
-        xdata=diff_dic[field]['energy'] 
-        ydata=diff_dic[field]['mdeg']
-        ydata_normalized=ydata/np.max(np.absolute(ydata))
-        popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,bounds=(0,1)) #lsf optimization to spit out ev
+        if field is not '0':
+            xdata=diff_dic[field]['energy'] 
+            ydata=diff_dic[field]['sub_test_zero_subtracted']
+            ydata_normalized=ydata/np.max(np.absolute(ydata))
+            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,bounds=(0,1)) #lsf optimization to spit out ev
 
-        ev=popt[0] #return minimzed ev to variable
-        ev_list.append(ev) #add ev to list
-        c=299792458 #speed of light (m/s)
-        e=1.60217662E-19 #charge of electron (C)
-        m_e=9.10938356E-31 #mass of electron (kg)
-        w_c=c/(1240/(ev/1000)*(10**-9)) #cyclotron resonance frequency
-        effective_mass=e/w_c/2/m_e/math.pi #effective mass (m*/m_e), removed field scaling for now
-        m_list.append(effective_mass) #add m* to list
+            ev=popt[0] #return minimzed ev to variable
+            ev_list.append(ev) #add ev to list
+            c=299792458 #speed of light (m/s)
+            e=1.60217662E-19 #charge of electron (C)
+            m_e=9.10938356E-31 #mass of electron (kg)
+            w_c=c/(1240/(ev/1000)*(10**-9)) #cyclotron resonance frequency
+            effective_mass=e/w_c/2/m_e/math.pi #effective mass (m*/m_e), removed field scaling for now
+            m_list.append(effective_mass) #add m* to list
 
-        fig,ax=plt.subplots(figsize=(2,4))
-        plt.title(str(field) + 'T Fit')
-        plt.ylabel('MCD (deltaA/A_max*B) (T^-1) (x 10^-3)')
-        plt.xlabel('Energy (eV)')
-        plt.xlim(1.55,0.75)
-        plt.plot(xdata,ydata_normalized,label='experiment_data',c='Black')
-        plt.plot(xdata,[func(x,*popt) for x in xdata],label='simulated_fit',c='Red')
-        baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
-        ax.add_line(baseline) #add baseline to plot
-        plt.legend(loc='lower right')
-        plt.text(1.2,-0.5,'%.3f meV\n%.3f m*' % (ev,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
-        plt.savefig(str(field) + "T_fit",dpi=100,transparent=True,bbox_inches='tight')
+            fig,ax=plt.subplots(figsize=(2,4))
+            plt.title(str(field) + 'T Fit')
+            plt.ylabel('MCD (deltaA/A_max*B) (T^-1) (x 10^-3)')
+            plt.xlabel('Energy (eV)')
+            plt.xlim(1.55,0.75)
+            plt.plot(xdata,ydata_normalized,label='experiment_data',c='Black')
+            plt.plot(xdata,[func(x,*popt) for x in xdata],label='simulated_fit',c='Red')
+            baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
+            ax.add_line(baseline) #add baseline to plot
+            plt.legend(loc=0)
+            plt.text(1.2,-0.5,'%.3f meV\n%.3f m*' % (ev,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
+            plt.savefig(str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
     average_ev = np.mean(ev_list)
     std_dev_ev = np.std(ev_list)
     average_m = np.mean(m_list)
     std_dev_m = np.std(m_list)
-    return average_ev, std_dev_ev, average_m, std_dev_m
+    return average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list
 
 def openHTML(f,title):
     f.write("<!DOCTYPE html>\n")
@@ -302,12 +303,40 @@ def writeHTMLfile(file_name):
     f.write('<p>The average effective mass (<i>m*</i>) is  <b>%.3f</b> \u00B1 %.4f.</p>' % (average_m,std_dev_m))
     closeHTML(f)
 
-    ##-----Functional Code Below-----##
+def writeHTMLfile_difference(file_name,report_date):
+    f=open(file_name,'w')
+    openHTML(f,'MCD ' + report_date + ' Report')
+    writeHTMLspacer(f,'<div>\n')
+    writeHTMLimage(f,'raw_mcd','raw_mcd_sample.png')
+    writeHTMLimage(f,'raw_mcd','raw_mcd_blank.png')
+    writeHTMLimage(f,'avg_mcd','avg_mcd_sample.png')
+    writeHTMLimage(f,'avg_mcd','avg_mcd_blank.png')
+    writeHTMLspacer(f,'</div>\n<div>')
+    writeHTMLimage(f,'diff_mcd','avg_mcd_sub_test3.png')
+    writeHTMLimage(f,'smooth_abs','smooth_abs.png')
+    writeHTMLspacer(f,'</div>\n<div>')
+    #These next few most certainly deserve a loop... I'll get around to it eventually...
+    writeHTMLimage(f,'2T_fit','2T_fit.png')
+    writeHTMLimage(f,'4T_fit','4T_fit.png')
+    writeHTMLimage(f,'6T_fit','6T_fit.png')
+    writeHTMLimage(f,'8T_fit','8T_fit.png')
+    writeHTMLimage(f,'10T_fit','10T_fit.png')
+    writeHTMLspacer(f,'</div>\n')
+    f.write('<p><u>From the above data:</u></p>')
+    f.write('<p>The average Zeeman splitting energy is <b>%.3f</b> \u00B1 %.4f meV.</p>' % (average_ev,std_dev_ev))
+    f.write('<p>The average effective mass (<i>m*</i>) is  <b>%.3f</b> \u00B1 %.4f.</p>' % (average_m,std_dev_m))
+    closeHTML(f)
+
+
+
+
+'''-------------------------------FUNCTIONAL CODE BELOW-------------------------------'''
+
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/users/roflc/Desktop/MCD 03-15-21 v2/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/users/roflc/Desktop/ABS 03-15-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-15-21 v2/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/ABS 03-15-21/") #calculated abs data in dataframe
 
 '''perform mcd experimental data operations'''
 plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
@@ -317,12 +346,12 @@ plot_mcd(df_avgs,'avg',title='sample')
 # plot_diff_mcd(df_diff)
 
 '''perform mcd difference calculation'''
-raw_mcd_dic_blank = parse_mcd("/mnt/c/users/roflc/Desktop/MCD 03-15-21 Blank/")
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-15-21 Blank/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
 
-# make this a function, finds diff between sample and blank.
+# make this a function, finds diff between sample and blank only.
 diff_df={}
 for name, df in df_avgs.items():
     for df_blank in df_blank_avgs.values():
@@ -331,7 +360,8 @@ for name, df in df_avgs.items():
         diff_df[name]['energy'] = df['energy'] #fix energy
         diff_df[name]['field'] = df['field'] #fix field
         diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
-plot_mcd(diff_df,'avg',title='diff')
+        diff_df[name]['zero_subtracted'] = diff_df[name]['mdeg'] - diff_df['0']['mdeg']
+plot_mcd(diff_df,'avg',title='diff_0T_subbed',ydata='zero_subtracted')
 
 # make this a function, finds diff between sample and blank using total PEM signal.
 all_pem_channels_added_diff_df={}
@@ -348,20 +378,14 @@ for name, df in df_avgs.items():
         all_pem_channels_added_diff_df[name]['sub_test_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['sub_test'] - all_pem_channels_added_diff_df['0']['sub_test']) * 32982
 plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_test3',ydata='sub_test_zero_subtracted')
 
-sys.exit()
-
-# for name, df in dic.items():
-#         df_diff[name] = pd.DataFrame()
-#             if op=='add':
-#                 df_diff[name] = df + dic['-' + name] #add positive and negative dictionary entries
-#                 df_diff[name]['energy'] = df['energy'] #fix energy back to original values
-#                 df_diff[name]['field'] = df['field'] #fix field back to original values
-
 '''perform absorbance simulation data fitting operations'''
+plot_abs(df_abs,op='raw')
 plot_abs(df_abs)
+
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m = calc_effective_mass_and_plot(fit_diff,df_diff)
+average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_mass_and_plot(fit_diff,all_pem_channels_added_diff_df)
 
 '''write HTML file report'''
-writeHTMLfile('mcd.html')
+# writeHTMLfile('mcd.html','11-11-2020')
+writeHTMLfile_difference('mcd_difference.html','03-15-2021, Both Max Signals')
  
