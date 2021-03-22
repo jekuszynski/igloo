@@ -38,12 +38,11 @@ def read_spe(spefile):
     #total run time (in seconds)
     total_collection_time = exp_sec * accumulations
 
-    # print ("date      = ["+date+"]")
-    print ("exp_date     = ", date)
-    print ("exp_sec      = ", exp_sec)
-    print ("accums       = ", accumulations)
-    print ("run time (s) = ", total_collection_time)
-    # print ("data_type = ", data_type)
+    # print ("exp_date     = ", date)
+    # print ("exp_sec      = ", exp_sec)
+    # print ("accums       = ", accumulations)
+    # print ("run time (s) = ", total_collection_time)
+    # print ("data_type    = ", data_type)
     # print ("detectorTemperature [C] = ", detectorTemperature)
 
     # Number of pixels on x-axis and y-axis
@@ -168,7 +167,15 @@ def read_spe(spefile):
     xcalib['laser_position'] = struct.unpack_from("d", header, offset=3311)[0]
 
     #setup data dictionary
-    spedict = {'data':[], 'EXPOSURE':exp_sec,'SPEFNAME':spefile,'XCALIB':xcalib,'ACCUMULATIONS':accumulations}
+    spedict = {'data':[], 
+                'EXPOSURE':exp_sec,
+                'SPEFNAME':spefile,
+                'OBSDATE':date,
+                'XCALIB':xcalib,
+                'ACCUMULATIONS':accumulations,
+                'FLATFIELD':flatFieldApplied,
+                'BACKGROUND':BackgroundApplied
+                }
 
     for ii in range(nframes):
         iistr = str(ii)
@@ -209,8 +216,9 @@ def read_spe(spefile):
     # plt.plot(wavelengthData,intensityData)
     # plt.show()
 
-    return wavelengthData, intensityData
+    return wavelengthData, intensityData, spedict
 
 path = '/home/jkusz/github/king_jason/Project-2/CFS1-2.SPE'
-xdata, ydata = read_spe(path)
-print("xdata: ", xdata, "\nydata: ", ydata)
+xdata, ydata, spedict = read_spe(path)
+# print("xdata: ", xdata, "\nydata: ", ydata)
+# print(spedict)
