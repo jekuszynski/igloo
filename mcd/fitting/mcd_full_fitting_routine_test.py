@@ -217,6 +217,10 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
 
     return fit_diff
 
+def nm_to_eV(nm):
+    eV = 1240 / nm
+    return ["%.3f" % z for z in eV]
+
 def func(x,ev): #define simulated mcd function from absorbance spectrum
     coeff=poly.polyfit(df_abs['energy'],df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x+ev,coeff) #find y from +ev shifted LCP spectrum
@@ -329,24 +333,30 @@ def writeHTMLfile_difference(file_name,report_date):
 
 
 
-
 '''-------------------------------FUNCTIONAL CODE BELOW-------------------------------'''
 
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-15-21 v2/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/ABS 03-15-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-10-21/") #raw mcd data in dictionary
+# df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/ABS 03-15-21/") #calculated abs data in dataframe
 
-'''perform mcd experimental data operations'''
+'''fit raw and avg mcd straight from datafile - no workup'''
 plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
 df_avgs = calc_raw_avg_mcd(raw_mcd_dic) #
 plot_mcd(df_avgs,'avg',title='sample')
-# df_diff = calc_diff_mcd(df_avgs)
-# plot_diff_mcd(df_diff)
 
-'''perform mcd difference calculation'''
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-15-21 Blank/")
+'''mcd difference (no blank)'''
+for name, df in df_avgs.items():
+    df_avgs[name]['vac_mod'] = np.sqrt((df_avgs[name]['pemx'])**2 + (df_avgs[name]['pemy'])**2)
+    df_avgs[name]['vdc_mod'] = np.sqrt((df_avgs[name]['chpx'])**2 + (df_avgs[name]['chpy'])**2)
+    df_avgs[name]['total_mod_test'] = df_avgs[name]['vac_mod'] / df_avgs[name]['vdc_mod']
+    df_avgs[name]['0T_total_mod_sub'] = df_avgs[name]['total_mod_test'] - df_avgs['0']['total_mod_test']
+plot_mcd(df_avgs,'avg',title='total_mod_test',ydata='total_mod_test')
+plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
+
+'''mcd difference with blank'''
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-11-21/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
@@ -372,20 +382,20 @@ for name, df in df_avgs.items():
         all_pem_channels_added_diff_df[name]['energy'] = df['energy'] #fix energy
         all_pem_channels_added_diff_df[name]['field'] = df['field'] #fix field
         all_pem_channels_added_diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
-        all_pem_channels_added_diff_df[name]['samp_test'] = (df['pemx'] + df['pemy']) / (df['chpx']+df['chpy'])
-        all_pem_channels_added_diff_df[name]['blank_test'] = (df_blank['pemx'] + df_blank['pemy']) / (df_blank['chpx']+df_blank['chpy'])
+        all_pem_channels_added_diff_df[name]['samp_test'] = np.sqrt(df['pemx']**2 + df['pemy']**2) / np.sqrt(df['chpx']**2 + df['chpy']**2)
+        all_pem_channels_added_diff_df[name]['blank_test'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2)
         all_pem_channels_added_diff_df[name]['sub_test'] = all_pem_channels_added_diff_df[name]['samp_test'] - all_pem_channels_added_diff_df[name]['blank_test']
         all_pem_channels_added_diff_df[name]['sub_test_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['sub_test'] - all_pem_channels_added_diff_df['0']['sub_test']) * 32982
-plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_test3',ydata='sub_test_zero_subtracted')
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_test3_modulus',ydata='sub_test_zero_subtracted')
 
-'''perform absorbance simulation data fitting operations'''
-plot_abs(df_abs,op='raw')
-plot_abs(df_abs)
+# '''perform absorbance simulation data fitting operations'''
+# plot_abs(df_abs,op='raw')
+# plot_abs(df_abs)
 
-fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_mass_and_plot(fit_diff,all_pem_channels_added_diff_df)
+# fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
+# average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_mass_and_plot(fit_diff,all_pem_channels_added_diff_df)
 
-'''write HTML file report'''
-# writeHTMLfile('mcd.html','11-11-2020')
-writeHTMLfile_difference('mcd_difference.html','03-15-2021, Both Max Signals')
+# '''write HTML file report'''
+# # writeHTMLfile('mcd.html','11-11-2020')
+# writeHTMLfile_difference('mcd_difference.html','03-15-2021, Both Max Signals')
  
