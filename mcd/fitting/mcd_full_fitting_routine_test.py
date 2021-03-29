@@ -225,7 +225,7 @@ def func(x,ev,y): #define simulated mcd function from absorbance spectrum
     coeff=poly.polyfit(df_abs['energy'],df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x+ev,coeff) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x-ev,coeff) #find y from -ev shifted RCP spectrum
-    return RCP-LCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+    return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
 
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
@@ -233,7 +233,7 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
     for field in diff_dic.keys():
         if field is not '0':
             xdata=diff_dic[field]['energy'] 
-            ydata=diff_dic[field]['sub_test_zero_subtracted']
+            ydata=diff_dic[field]['zero_subtracted']
             ydata_normalized=ydata/np.max(np.absolute(ydata))
             popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,bounds=(0,1)) #lsf optimization to spit out ev
 
@@ -316,7 +316,7 @@ def writeHTMLfile_difference(file_name,report_date):
     writeHTMLimage(f,'avg_mcd','avg_mcd_sample.png')
     writeHTMLimage(f,'avg_mcd','avg_mcd_blank.png')
     writeHTMLspacer(f,'</div>\n<div>')
-    writeHTMLimage(f,'diff_mcd','avg_mcd_sub_test3.png')
+    writeHTMLimage(f,'diff_mcd','avg_mcd_diff_0T_subbed.png')
     writeHTMLimage(f,'smooth_abs','smooth_abs.png')
     writeHTMLspacer(f,'</div>\n<div>')
     #These next few most certainly deserve a loop... I'll get around to it eventually...
@@ -338,8 +338,11 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-22-21/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/ABS 03-22-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-29-21/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/ABS 3-29-21/") #calculated abs data in dataframe
+
+# raw_mcd_dic = parse_mcd("") #USB
+# df_abs = parse_abs("") #USB
 
 '''fit raw and avg mcd straight from datafile - no workup'''
 plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
@@ -356,7 +359,7 @@ plot_mcd(df_avgs,'avg',title='total_mod_test',ydata='total_mod_test')
 plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
 
 '''mcd difference with blank'''
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD Blank 03-22-21/")
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD Blank 03-29-21/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
@@ -373,7 +376,7 @@ for name, df in df_avgs.items():
         diff_df[name]['zero_subtracted'] = diff_df[name]['mdeg'] - diff_df['0']['mdeg']
 plot_mcd(diff_df,'avg',title='diff_0T_subbed',ydata='zero_subtracted')
 
-# make this a function, finds diff between sample and blank using total PEM signal.
+# make this a function, finds diff between sample and blank using total x/y signal.
 all_pem_channels_added_diff_df={}
 for name, df in df_avgs.items():
     for df_blank in df_blank_avgs.values():
@@ -393,9 +396,9 @@ plot_abs(df_abs,op='raw')
 plot_abs(df_abs)
 
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_mass_and_plot(fit_diff,all_pem_channels_added_diff_df)
+average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_mass_and_plot(fit_diff,diff_df)
 
 # '''write HTML file report'''
 # # writeHTMLfile('mcd.html','11-11-2020')
-writeHTMLfile_difference('mcd_difference.html','03-15-2021, Both Max Signals')
+writeHTMLfile_difference('mcd_difference.html','03-29-2021, Both Max Signals')
  
