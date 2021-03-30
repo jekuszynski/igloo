@@ -1,2 +1,3 @@
 # ignore experimental CFS files
 CFS*/
+*CFS/

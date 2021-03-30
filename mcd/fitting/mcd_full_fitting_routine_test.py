@@ -311,13 +311,19 @@ def writeHTMLfile_difference(file_name,report_date):
     f=open(file_name,'w')
     openHTML(f,'MCD ' + report_date + ' Report')
     writeHTMLspacer(f,'<div>\n')
+    f.write('<p><b>Raw & Average MCD Spectra</b></p>')
     writeHTMLimage(f,'raw_mcd','raw_mcd_sample.png')
     writeHTMLimage(f,'raw_mcd','raw_mcd_blank.png')
     writeHTMLimage(f,'avg_mcd','avg_mcd_sample.png')
     writeHTMLimage(f,'avg_mcd','avg_mcd_blank.png')
     writeHTMLspacer(f,'</div>\n<div>')
-    writeHTMLimage(f,'diff_mcd','avg_mcd_diff_0T_subbed.png')
-    writeHTMLimage(f,'smooth_abs','smooth_abs.png')
+    f.write('<p><b>Diff MCD Spectra</b></p>')
+    writeHTMLimage(f,'diff_mcd','avg_mcd_diff.png')
+    writeHTMLimage(f,'diff_mcd_0T_subtracted','avg_mcd_Diff_MCD_no_blank_0T_subbed.png')
+    writeHTMLspacer(f,'</div>\n<div>')
+    f.write('<p><b>Diff Modulus MCD Spectra</b></p>')
+    writeHTMLimage(f,'diff_mcd_modulus','avg_mcd_sub_modulus.png')
+    writeHTMLimage(f,'diff_mcd_modulus_0T_subtracted','avg_mcd_sub_modulus_zero_subtracted.png')
     writeHTMLspacer(f,'</div>\n<div>')
     #These next few most certainly deserve a loop... I'll get around to it eventually...
     writeHTMLimage(f,'2T_fit','2T_fit.png')
@@ -353,10 +359,12 @@ plot_mcd(df_avgs,'avg',title='sample')
 for name, df in df_avgs.items():
     df_avgs[name]['vac_mod'] = np.sqrt((df_avgs[name]['pemx'])**2 + (df_avgs[name]['pemy'])**2)
     df_avgs[name]['vdc_mod'] = np.sqrt((df_avgs[name]['chpx'])**2 + (df_avgs[name]['chpy'])**2)
-    df_avgs[name]['total_mod_test'] = df_avgs[name]['vac_mod'] / df_avgs[name]['vdc_mod']
+    df_avgs[name]['total_mod_test'] = df_avgs[name]['vac_mod'] / df_avgs[name]['vdc_mod'] * 32982
     df_avgs[name]['0T_total_mod_sub'] = df_avgs[name]['total_mod_test'] - df_avgs['0']['total_mod_test']
+    df_avgs[name]['avg-0T'] = df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']
 plot_mcd(df_avgs,'avg',title='total_mod_test',ydata='total_mod_test')
 plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
+plot_mcd(df_avgs,'avg',title='Diff_MCD_no_blank_0T_subbed',ydata='avg-0T')
 
 '''mcd difference with blank'''
 raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD Blank 03-29-21/")
@@ -374,6 +382,7 @@ for name, df in df_avgs.items():
         diff_df[name]['field'] = df['field'] #fix field
         diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
         diff_df[name]['zero_subtracted'] = diff_df[name]['mdeg'] - diff_df['0']['mdeg']
+plot_mcd(diff_df,'avg',title='diff',ydata='mdeg')
 plot_mcd(diff_df,'avg',title='diff_0T_subbed',ydata='zero_subtracted')
 
 # make this a function, finds diff between sample and blank using total x/y signal.
@@ -385,11 +394,12 @@ for name, df in df_avgs.items():
         all_pem_channels_added_diff_df[name]['energy'] = df['energy'] #fix energy
         all_pem_channels_added_diff_df[name]['field'] = df['field'] #fix field
         all_pem_channels_added_diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
-        all_pem_channels_added_diff_df[name]['samp_test'] = np.sqrt(df['pemx']**2 + df['pemy']**2) / np.sqrt(df['chpx']**2 + df['chpy']**2)
-        all_pem_channels_added_diff_df[name]['blank_test'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2)
-        all_pem_channels_added_diff_df[name]['sub_test'] = all_pem_channels_added_diff_df[name]['samp_test'] - all_pem_channels_added_diff_df[name]['blank_test']
-        all_pem_channels_added_diff_df[name]['sub_test_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['sub_test'] - all_pem_channels_added_diff_df['0']['sub_test']) * 32982
-plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_test3_modulus',ydata='sub_test_zero_subtracted')
+        all_pem_channels_added_diff_df[name]['samp_test'] = np.sqrt(df['pemx']**2 + df['pemy']**2) / np.sqrt(df['chpx']**2 + df['chpy']**2) * 32982
+        all_pem_channels_added_diff_df[name]['blank_test'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2) * 32982
+        all_pem_channels_added_diff_df[name]['modulus_subtracted'] = all_pem_channels_added_diff_df[name]['samp_test'] - all_pem_channels_added_diff_df[name]['blank_test'] 
+        all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['modulus_subtracted'] - all_pem_channels_added_diff_df['0']['modulus_subtracted']) 
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_modulus',ydata='modulus_subtracted')
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_modulus_zero_subtracted',ydata='sub_mod_zero_subtracted')
 
 # '''perform absorbance simulation data fitting operations'''
 plot_abs(df_abs,op='raw')
@@ -401,4 +411,5 @@ average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_m
 # '''write HTML file report'''
 # # writeHTMLfile('mcd.html','11-11-2020')
 writeHTMLfile_difference('mcd_difference.html','03-29-2021, Both Max Signals')
- 
+
+print("Done!")
