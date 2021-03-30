@@ -213,6 +213,7 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
     plt.xlim(2.1,0.55)
     plt.plot(x,fit_diff,c='Purple')
     plt.legend(('Simulated MCD'))
+    plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
 
     return fit_diff
@@ -221,7 +222,7 @@ def nm_to_eV(nm):
     eV = 1240 / nm
     return ["%.3f" % z for z in eV]
 
-def func(x,ev,y): #define simulated mcd function from absorbance spectrum
+def func(x,ev): #define simulated mcd function from absorbance spectrum
     coeff=poly.polyfit(df_abs['energy'],df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x+ev,coeff) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x-ev,coeff) #find y from -ev shifted RCP spectrum
@@ -233,10 +234,14 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
     for field in diff_dic.keys():
         if field is not '0':
             xdata=diff_dic[field]['energy'] 
-            ydata=diff_dic[field]['zero_subtracted']
-            ydata_normalized=ydata/np.max(np.absolute(ydata))
-            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,bounds=(0,1)) #lsf optimization to spit out ev
+            ydata=diff_dic[field]['zero_subtracted'] # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
 
+            # Perhaps I'm using either wrong dictionary, wrong ydata, OR I'm just using the func() wrong. Maybe mimic like plotted above?
+
+            ydata_normalized=ydata/np.max(np.absolute(ydata))
+            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized) #lsf optimization to spit out ev
+            # print(popt)
+            # print(pcov) #list of residuals
             ev=popt[0] #return minimzed ev to variable
             ev_list.append(ev) #add ev to list
             c=299792458 #speed of light (m/s)
@@ -311,17 +316,25 @@ def writeHTMLfile_difference(file_name,report_date):
     f=open(file_name,'w')
     openHTML(f,'MCD ' + report_date + ' Report')
     writeHTMLspacer(f,'<div>\n')
-    f.write('<p><b>Raw & Average MCD Spectra</b></p>')
+    f.write('<p><b>Raw MCD Spectra</b></p>')
     writeHTMLimage(f,'raw_mcd','raw_mcd_sample.png')
     writeHTMLimage(f,'raw_mcd','raw_mcd_blank.png')
+    writeHTMLspacer(f,'</div>\n<div>')
+    f.write('<p><b>Average MCD Spectra</b></p>')
     writeHTMLimage(f,'avg_mcd','avg_mcd_sample.png')
     writeHTMLimage(f,'avg_mcd','avg_mcd_blank.png')
     writeHTMLspacer(f,'</div>\n<div>')
-    f.write('<p><b>Diff MCD Spectra</b></p>')
-    writeHTMLimage(f,'diff_mcd','avg_mcd_diff.png')
-    writeHTMLimage(f,'diff_mcd_0T_subtracted','avg_mcd_Diff_MCD_no_blank_0T_subbed.png')
+    f.write('<p><b>Diff MCD Spectra & Absorbance Spectra</b></p>')
+    writeHTMLimage(f,'S-B_diff_mcd','avg_mcd_diff.png')
+    writeHTMLimage(f,'S-0T_diff_mcd','avg_mcd_Diff_no_blank_0T_subbed.png')
+    writeHTMLimage(f,'S-B-0T','avg_mcd_diff_0T_subbed.png') 
+    writeHTMLimage(f,'raw_abs','raw_abs.png')
+    writeHTMLimage(f,'smooth_abs','smooth_abs.png')
     writeHTMLspacer(f,'</div>\n<div>')
     f.write('<p><b>Diff Modulus MCD Spectra</b></p>')
+    writeHTMLimage(f,'sample_mcd_modulus','avg_mcd_sample_modulus.png')
+    writeHTMLimage(f,'blank_mcd_modulus','avg_mcd_blank_modulus.png')
+    writeHTMLimage(f,'sample-0T','avg_mcd_sample-0T.png')  
     writeHTMLimage(f,'diff_mcd_modulus','avg_mcd_sub_modulus.png')
     writeHTMLimage(f,'diff_mcd_modulus_0T_subtracted','avg_mcd_sub_modulus_zero_subtracted.png')
     writeHTMLspacer(f,'</div>\n<div>')
@@ -364,13 +377,14 @@ for name, df in df_avgs.items():
     df_avgs[name]['avg-0T'] = df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']
 plot_mcd(df_avgs,'avg',title='total_mod_test',ydata='total_mod_test')
 plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
-plot_mcd(df_avgs,'avg',title='Diff_MCD_no_blank_0T_subbed',ydata='avg-0T')
+plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
 
 '''mcd difference with blank'''
 raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD Blank 03-29-21/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
+
 
 # make this a function, finds diff between sample and blank only.
 diff_df={}
@@ -394,10 +408,14 @@ for name, df in df_avgs.items():
         all_pem_channels_added_diff_df[name]['energy'] = df['energy'] #fix energy
         all_pem_channels_added_diff_df[name]['field'] = df['field'] #fix field
         all_pem_channels_added_diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
-        all_pem_channels_added_diff_df[name]['samp_test'] = np.sqrt(df['pemx']**2 + df['pemy']**2) / np.sqrt(df['chpx']**2 + df['chpy']**2) * 32982
-        all_pem_channels_added_diff_df[name]['blank_test'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2) * 32982
-        all_pem_channels_added_diff_df[name]['modulus_subtracted'] = all_pem_channels_added_diff_df[name]['samp_test'] - all_pem_channels_added_diff_df[name]['blank_test'] 
+        all_pem_channels_added_diff_df[name]['sample_mod'] = np.sqrt(df['pemx']**2 + df['pemy']**2) / np.sqrt(df['chpx']**2 + df['chpy']**2) * 32982
+        all_pem_channels_added_diff_df[name]['blank_mod'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2) * 32982
+        all_pem_channels_added_diff_df[name]['sample-0T'] = (all_pem_channels_added_diff_df[name]['sample_mod'] - all_pem_channels_added_diff_df['0']['sample_mod']) 
+        all_pem_channels_added_diff_df[name]['modulus_subtracted'] = all_pem_channels_added_diff_df[name]['sample_mod'] - all_pem_channels_added_diff_df[name]['blank_mod'] 
         all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['modulus_subtracted'] - all_pem_channels_added_diff_df['0']['modulus_subtracted']) 
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='sample_modulus',ydata='sample_mod')
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='blank_modulus',ydata='blank_mod')
+plot_mcd(all_pem_channels_added_diff_df,'avg',title='sample-0T',ydata='sample-0T')
 plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_modulus',ydata='modulus_subtracted')
 plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_modulus_zero_subtracted',ydata='sub_mod_zero_subtracted')
 
