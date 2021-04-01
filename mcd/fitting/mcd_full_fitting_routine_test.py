@@ -11,6 +11,8 @@ import seaborn as sns
 from scipy import signal,optimize
 import math
 
+plt.rcParams.update({'figure.max_open_warning': 0}) #Remove figure creation RuntimeWarning.
+
 def parse_mcd(path):
     d={}
     for root, dirs, files in os.walk(path): #walk along all files in directory given a path
@@ -77,7 +79,8 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
     if op=='avg':
         plt.title("Averaged MCD " + title)
     plt.ylabel('MCD (mdeg)')
-    plt.xlim(1.55,.75)
+    plt.xlim(3.2,.55)
+    plt.ylim(-50,50)
     plt.style.use('seaborn-paper')
     plt.savefig(op + '_mcd_' + title,dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
@@ -145,7 +148,7 @@ def plot_diff_mcd(dic,op='avg',x_axis='Energy (eV)'):
     if op=='avg':
         plt.title("Difference MCD")
     plt.ylabel('MCD (mdeg)')
-    plt.xlim(1.55,.75)
+    plt.xlim(3.2,.55)
     baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
     ax.add_line(baseline) #add baseline to plot
     plt.style.use('seaborn-paper')
@@ -185,7 +188,7 @@ def plot_abs(df,op='smooth',x_axis='energy'):
         plt.title("Smoothed Absorbance")
         sns.lineplot(data=df,x='energy',y='smoothed_absorbance',color='Black')
     plt.ylabel('Absorbance (a.u.)')
-    plt.xlim(2.0,0.75)
+    plt.xlim(4,.55)
     plt.style.use('seaborn-paper')
     plt.savefig(op + '_abs',dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
@@ -201,7 +204,7 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
 
     plt.subplot(2,1,1)
     plt.ylabel('Absorbance (a.u.)')
-    plt.xlim(2.1,0.55)
+    plt.xlim(3.2,.55)
     plt.scatter(x,y,s=1.3,c='Black')
     plt.plot(x,fit_L,c='Blue')
     plt.plot(x,fit_R,c='Red')
@@ -210,7 +213,7 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
     plt.subplot(2,1,2)
     plt.ylabel('Absorbance (a.u.)')
     plt.xlabel('Energy (eV)')
-    plt.xlim(2.1,0.55)
+    plt.xlim(3.0,.55)
     plt.plot(x,fit_diff,c='Purple')
     plt.legend(('Simulated MCD'))
     plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
@@ -222,11 +225,14 @@ def nm_to_eV(nm):
     eV = 1240 / nm
     return ["%.3f" % z for z in eV]
 
-def func(x,ev): #define simulated mcd function from absorbance spectrum
-    coeff=poly.polyfit(df_abs['energy'],df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
-    LCP=poly.polyval(x+ev,coeff) #find y from +ev shifted LCP spectrum
-    RCP=poly.polyval(x-ev,coeff) #find y from -ev shifted RCP spectrum
-    return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+def func(x,ev,yoffset): #define simulated mcd function from absorbance spectrum
+    coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
+    coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
+    LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
+    RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
+    return LCP-RCP+yoffset #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+
+    df_abs['energy'],df_abs['absorbance']
 
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
@@ -239,10 +245,12 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
             # Perhaps I'm using either wrong dictionary, wrong ydata, OR I'm just using the func() wrong. Maybe mimic like plotted above?
 
             ydata_normalized=ydata/np.max(np.absolute(ydata))
-            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized) #lsf optimization to spit out ev
+            ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
+            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=[0.05,0.1]) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+            
             # print(popt)
             # print(pcov) #list of residuals
-            ev=popt[0] #return minimzed ev to variable
+            ev=np.absolute(popt[0]) #return absolute val of minimzed ev to variable
             ev_list.append(ev) #add ev to list
             c=299792458 #speed of light (m/s)
             e=1.60217662E-19 #charge of electron (C)
@@ -255,7 +263,7 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
             plt.title(str(field) + 'T Fit')
             plt.ylabel('MCD (deltaA/A_max*B) (T^-1) (x 10^-3)')
             plt.xlabel('Energy (eV)')
-            plt.xlim(1.55,0.75)
+            plt.xlim(3.2,.55)
             plt.plot(xdata,ydata_normalized,label='experiment_data',c='Black')
             plt.plot(xdata,[func(x,*popt) for x in xdata],label='simulated_fit',c='Red')
             baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
@@ -357,8 +365,8 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD 03-29-21/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/ABS 3-29-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 03-31-21 NIR/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 03-29-21/") #calculated abs data in dataframe
 
 # raw_mcd_dic = parse_mcd("") #USB
 # df_abs = parse_abs("") #USB
@@ -380,11 +388,10 @@ plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
 plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
 
 '''mcd difference with blank'''
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD Blank 03-29-21/")
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 03-30-21 Blank/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
-
 
 # make this a function, finds diff between sample and blank only.
 diff_df={}
@@ -428,6 +435,6 @@ average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_m
 
 # '''write HTML file report'''
 # # writeHTMLfile('mcd.html','11-11-2020')
-writeHTMLfile_difference('mcd_difference.html','03-29-2021, Both Max Signals')
+writeHTMLfile_difference('mcd_difference.html','03-30-2021, Both Max Signals')
 
-print("Done!")
+print("...\nDone!")
