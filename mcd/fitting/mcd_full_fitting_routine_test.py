@@ -230,9 +230,9 @@ def func(x,ev,yoffset): #define simulated mcd function from absorbance spectrum
     coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
-    return LCP-RCP+yoffset #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+    return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
 
-    df_abs['energy'],df_abs['absorbance']
+    # df_abs['energy'],df_abs['absorbance']
 
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
@@ -240,22 +240,24 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
     for field in diff_dic.keys():
         if field is not '0':
             xdata=diff_dic[field]['energy'] 
-            ydata=diff_dic[field]['zero_subtracted'] # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
+            ydata=diff_dic[field]['zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
+            
+            # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
 
             # Perhaps I'm using either wrong dictionary, wrong ydata, OR I'm just using the func() wrong. Maybe mimic like plotted above?
 
-            ydata_normalized=ydata/np.max(np.absolute(ydata))
+            ydata_normalized=ydata/(np.max(df_abs['absorbance']))
             ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
-            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=[0.05,0.1]) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=[0.0005,0.1]) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
             
             # print(popt)
             # print(pcov) #list of residuals
             ev=np.absolute(popt[0]) #return absolute val of minimzed ev to variable
-            ev_list.append(ev) #add ev to list
+            ev_list.append(ev*1000) #add ev to list
             c=299792458 #speed of light (m/s)
             e=1.60217662E-19 #charge of electron (C)
             m_e=9.10938356E-31 #mass of electron (kg)
-            w_c=c/(1240/(ev/1000)*(10**-9)) #cyclotron resonance frequency
+            w_c=c/(1240/(ev)*(10**-9)) #cyclotron resonance frequency
             effective_mass=e/w_c/2/m_e/math.pi #effective mass (m*/m_e), removed field scaling for now
             m_list.append(effective_mass) #add m* to list
 
@@ -269,7 +271,8 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
             baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
             ax.add_line(baseline) #add baseline to plot
             plt.legend(loc=0)
-            plt.text(1.2,-0.5,'%.3f meV\n%.3f m*' % (ev,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
+            # plt.text(1.2,-0.5,'%.3f meV\n%.3f m*' % (ev,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
+            plt.text(0,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
             plt.savefig(str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
     average_ev = np.mean(ev_list)
     std_dev_ev = np.std(ev_list)
@@ -365,7 +368,7 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 03-31-21 NIR/") #raw mcd data in dictionary
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-02-21/") #raw mcd data in dictionary
 df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 03-29-21/") #calculated abs data in dataframe
 
 # raw_mcd_dic = parse_mcd("") #USB
@@ -381,6 +384,7 @@ for name, df in df_avgs.items():
     df_avgs[name]['vac_mod'] = np.sqrt((df_avgs[name]['pemx'])**2 + (df_avgs[name]['pemy'])**2)
     df_avgs[name]['vdc_mod'] = np.sqrt((df_avgs[name]['chpx'])**2 + (df_avgs[name]['chpy'])**2)
     df_avgs[name]['total_mod_test'] = df_avgs[name]['vac_mod'] / df_avgs[name]['vdc_mod'] * 32982
+for name, df in df_avgs.items():
     df_avgs[name]['0T_total_mod_sub'] = df_avgs[name]['total_mod_test'] - df_avgs['0']['total_mod_test']
     df_avgs[name]['avg-0T'] = df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']
 plot_mcd(df_avgs,'avg',title='total_mod_test',ydata='total_mod_test')
@@ -402,6 +406,8 @@ for name, df in df_avgs.items():
         diff_df[name]['energy'] = df['energy'] #fix energy
         diff_df[name]['field'] = df['field'] #fix field
         diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
+for name, df in df_avgs.items():
+    for df_blank in df_blank_avgs.values():
         diff_df[name]['zero_subtracted'] = diff_df[name]['mdeg'] - diff_df['0']['mdeg']
 plot_mcd(diff_df,'avg',title='diff',ydata='mdeg')
 plot_mcd(diff_df,'avg',title='diff_0T_subbed',ydata='zero_subtracted')
@@ -417,8 +423,12 @@ for name, df in df_avgs.items():
         all_pem_channels_added_diff_df[name]['wavelength'] = df['wavelength'] #fix wavelength
         all_pem_channels_added_diff_df[name]['sample_mod'] = np.sqrt(df['pemx']**2 + df['pemy']**2) / np.sqrt(df['chpx']**2 + df['chpy']**2) * 32982
         all_pem_channels_added_diff_df[name]['blank_mod'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2) * 32982
+for name, df in df_avgs.items():
+    for df_blank in df_blank_avgs.values():
         all_pem_channels_added_diff_df[name]['sample-0T'] = (all_pem_channels_added_diff_df[name]['sample_mod'] - all_pem_channels_added_diff_df['0']['sample_mod']) 
         all_pem_channels_added_diff_df[name]['modulus_subtracted'] = all_pem_channels_added_diff_df[name]['sample_mod'] - all_pem_channels_added_diff_df[name]['blank_mod'] 
+for name, df in df_avgs.items():
+    for df_blank in df_blank_avgs.values():
         all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] = (all_pem_channels_added_diff_df[name]['modulus_subtracted'] - all_pem_channels_added_diff_df['0']['modulus_subtracted']) 
 plot_mcd(all_pem_channels_added_diff_df,'avg',title='sample_modulus',ydata='sample_mod')
 plot_mcd(all_pem_channels_added_diff_df,'avg',title='blank_modulus',ydata='blank_mod')
