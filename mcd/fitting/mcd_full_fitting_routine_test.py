@@ -237,33 +237,36 @@ def func(x,ev,yoffset): #define simulated mcd function from absorbance spectrum
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
     m_list=[]
+    B_list=[]
     for field in diff_dic.keys():
         if field is not '0':
-            xdata=diff_dic[field]['energy'] 
-            ydata=diff_dic[field]['zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
+            xdata=diff_dic[field].loc[diff_dic[field]['energy'] < 2,'energy']
+            ydata=diff_dic[field].loc[diff_dic[field]['energy'] < 2,'zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
             
             # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
 
             # Perhaps I'm using either wrong dictionary, wrong ydata, OR I'm just using the func() wrong. Maybe mimic like plotted above?
+            B=np.absolute(int(field)) #magnetic field (T)
+            B_list.append(B)
 
             ydata_normalized=ydata/(np.max(df_abs['absorbance']))
             ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
-            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=[0.0005,0.1]) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=[-0.0005,0.1]) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
             
             # print(popt)
             # print(pcov) #list of residuals
             ev=np.absolute(popt[0]) #return absolute val of minimzed ev to variable
-            ev_list.append(ev*1000) #add ev to list
+            ev_list.append(ev*1000) #add ev to list as meV
             c=299792458 #speed of light (m/s)
             e=1.60217662E-19 #charge of electron (C)
             m_e=9.10938356E-31 #mass of electron (kg)
             w_c=c/(1240/(ev)*(10**-9)) #cyclotron resonance frequency
-            effective_mass=e/w_c/2/m_e/math.pi #effective mass (m*/m_e), removed field scaling for now
+            effective_mass=e*B/w_c/2/m_e/math.pi #effective mass (m*/m_e), removed field scaling for now
             m_list.append(effective_mass) #add m* to list
 
             fig,ax=plt.subplots(figsize=(2,4))
             plt.title(str(field) + 'T Fit')
-            plt.ylabel('MCD (deltaA/A_max*B) (T^-1) (x 10^-3)')
+            plt.ylabel(r'MCD ($\Delta$A/A$_{max}$)')
             plt.xlabel('Energy (eV)')
             plt.xlim(3.2,.55)
             plt.plot(xdata,ydata_normalized,label='experiment_data',c='Black')
@@ -278,7 +281,7 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
     std_dev_ev = np.std(ev_list)
     average_m = np.mean(m_list)
     std_dev_m = np.std(m_list)
-    return average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list
+    return average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list, B_list
 
 def openHTML(f,title):
     f.write("<!DOCTYPE html>\n")
@@ -368,8 +371,8 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-02-21/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 03-29-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 03-31-21 NIR/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 03-31-21/") #calculated abs data in dataframe
 
 # raw_mcd_dic = parse_mcd("") #USB
 # df_abs = parse_abs("") #USB
@@ -392,7 +395,7 @@ plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
 plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
 
 '''mcd difference with blank'''
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 03-30-21 Blank/")
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
@@ -441,7 +444,19 @@ plot_abs(df_abs,op='raw')
 plot_abs(df_abs)
 
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list = calc_effective_mass_and_plot(fit_diff,diff_df)
+average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list, B_list = calc_effective_mass_and_plot(fit_diff,diff_df)
+
+# m, b = np.polyfit(B_list,ev_list,1)
+plt.clf() #Clear all previous plots
+fig,ax=plt.subplots(figsize=(6,3))
+plt.scatter(B_list, ev_list, label="meV")
+# plt.plot(B_list, m*B_list + b)
+plt.xlabel('B (T)')
+plt.xticks(np.arange(0,11,2))
+plt.xlim(1,11)
+plt.ylabel(r'$E_Z$ (meV)')
+plt.savefig('mev_test_plot.png',dpi=200,bbox_inches='tight')
+plt.show()
 
 # '''write HTML file report'''
 # # writeHTMLfile('mcd.html','11-11-2020')
