@@ -3,13 +3,15 @@ import os
 import re
 import pandas as pd
 import numpy as np
-import numpy.polynomial.polynomial as poly 
+import numpy.polynomial.polynomial as poly
 from matplotlib import pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.lines as lines
 import seaborn as sns
-from scipy import signal,optimize
+from scipy import signal,optimize,constants as const
 import math
+import matplotlib as mpl
+from pylab import cm
 
 plt.rcParams.update({'figure.max_open_warning': 0}) #Remove figure creation RuntimeWarning.
 
@@ -61,6 +63,7 @@ def parse_mcd_tests(path):
     #     ax.legend(ncol=5)
 
 def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata='mdeg'):
+    plt.clf()
     fig,ax=plt.subplots(figsize=(4,2))
     # norm=plt.Normalize(-10,10) #optional to remove discrete H bar divisions
     norm=colors.BoundaryNorm(np.linspace(-10,10,11),ncolors=256)
@@ -73,14 +76,41 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
                     palette=sns.color_palette('coolwarm_r',as_cmap=True),
                     legend=None)
     if x_axis=='Energy (eV)':
-        plt.xlabel(x_axis)
+        ax.set_xlabel(x_axis)
     if op=='raw':
         plt.title("Raw MCD " + title)
     if op=='avg':
         plt.title("Averaged MCD " + title)
-    plt.ylabel('MCD (mdeg)')
-    plt.xlim(3.2,.55)
-    plt.ylim(-50,50)
+    ax.set_ylabel('MCD (mdeg)')
+
+    # ax.xaxis.set_tick_params(which='major', size=5, width=1, direction='in', top='on')
+    # ax.xaxis.set_tick_params(which='minor', size=2, width=1, direction='in', top='on')
+    # ax.yaxis.set_tick_params(which='major', size=5, width=1, direction='in', right='on')
+    # ax.yaxis.set_tick_params(which='minor', size=2, width=1, direction='in', right='on')
+
+    # ax.xaxis.set_major_locator(mpl.ticker.MultipleLocator(0.5))
+    # ax.xaxis.set_minor_locator(mpl.ticker.MultipleLocator(0.25))
+    # ax.yaxis.set_major_locator(mpl.ticker.MultipleLocator(20))
+    # ax.yaxis.set_minor_locator(mpl.ticker.MultipleLocator(10))
+
+    ax.set_xlim(3.2,.55)
+    ax.set_ylim(-48,48)
+    
+    # ax2=ax.twiny()
+    # x_1, x_2 = ax.get_xlim()
+    # ax2.set_xlim(eV_to_nm(x_1),eV_to_nm(x_2))
+
+    # ax2.xaxis.set_tick_params(which='major', size=5, width=1, direction='in')
+    # ax2.xaxis.set_tick_params(which='minor', size=2, width=1, direction='in')
+
+    # ax2.xaxis.set_major_locator(mpl.ticker.FixedLocator(nm_to_eV(np.linspace(500, 1500, 3))))
+    # ax2.xaxis.set_minor_locator(mpl.ticker.FixedLocator(nm_to_eV(np.linspace(300, 1700, 15))))
+
+    # ax2.set_xticklabels(['500', '1000', '1500'])
+
+    # ax2.set_xlabel(r'$\mathregular{\lambda}$ (nm)')
+    # ax2.set_xlim(387.5, 2255)
+
     plt.style.use('seaborn-paper')
     plt.savefig(op + '_mcd_' + title,dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
@@ -175,6 +205,7 @@ def parse_abs(path):
     df_abs.columns=['wavelength','energy','ems','blank'] #setup columns
     df_abs['absorbance']=(2-np.log10(100 * df_abs['ems'] / df_abs['blank'])) #calculate absorbance from emission and blank data
     df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],25,2) #smooth absorbance plot using Savitzky-Golay
+    df_abs = df_abs[df_abs.wavelength < 1700] #remove collection greater than 1700 nm (used for InGaAs errors mainly)
     return df_abs
 
 def plot_abs(df,op='smooth',x_axis='energy'):
@@ -188,7 +219,7 @@ def plot_abs(df,op='smooth',x_axis='energy'):
         plt.title("Smoothed Absorbance")
         sns.lineplot(data=df,x='energy',y='smoothed_absorbance',color='Black')
     plt.ylabel('Absorbance (a.u.)')
-    plt.xlim(4,.55)
+    plt.xlim(3.2,.55)
     plt.style.use('seaborn-paper')
     plt.savefig(op + '_abs',dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
@@ -198,8 +229,9 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
     coeff_R=poly.polyfit([x-ev for x in x],y,9) #RCP poly fit coeffs
     fit_L=poly.polyval(x,coeff_L) #LCP line fit
     fit_R=poly.polyval(x,coeff_R) #RCP line fit
+
     fit_diff=(fit_L-fit_R)/(np.max(x))*1000 #calculate LCP-RCP normalized to absorbance max. Will incorporate based on field later.
-    # x = x.values.tolist()
+    # x = x.values.tolist()fit_R
     plt.figure(figsize=(6,6),dpi=80)
 
     plt.subplot(2,1,1)
@@ -225,11 +257,16 @@ def nm_to_eV(nm):
     eV = 1240 / nm
     return ["%.3f" % z for z in eV]
 
-def func(x,ev,yoffset): #define simulated mcd function from absorbance spectrum
+def eV_to_nm(eV):
+    nm = 1240/eV 
+    return "%.0f" % nm
+
+def func(x,ev): #define simulated mcd function from absorbance spectrum
     coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
+
     return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
 
     # df_abs['energy'],df_abs['absorbance']
@@ -240,28 +277,37 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
     B_list=[]
     for field in diff_dic.keys():
         if field is not '0':
-            xdata=diff_dic[field].loc[diff_dic[field]['energy'] < 2,'energy']
-            ydata=diff_dic[field].loc[diff_dic[field]['energy'] < 2,'zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
+            xdata=diff_dic[field].loc[diff_dic[field]['energy'] < 2.0,'energy']
+            ydata=diff_dic[field].loc[diff_dic[field]['energy'] < 2.0,'zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
             
             # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
 
             # Perhaps I'm using either wrong dictionary, wrong ydata, OR I'm just using the func() wrong. Maybe mimic like plotted above?
-            B=np.absolute(int(field)) #magnetic field (T)
-            B_list.append(B)
+            B_fit=int(field) #used for meV plotting later in zdf
+            B=np.absolute(B_fit) #magnetic field (T)
+            B_list.append(B_fit)
 
             ydata_normalized=ydata/(np.max(df_abs['absorbance']))
             ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
-            popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=[-0.0005,0.1]) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
-            
+            if B_fit < 0:
+                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.0002,method='trf',bounds=(0.00001,0.00070)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+            if B_fit > 0:
+                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.0002,method='trf',bounds=(-0.00070,-0.00001)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+
+            # if B_fit < 0:
+            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,0],[0.00070,0.001])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
+            # if B_fit > 0:
+            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.001],[-0.00001,0])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+
             # print(popt)
             # print(pcov) #list of residuals
             ev=np.absolute(popt[0]) #return absolute val of minimzed ev to variable
             ev_list.append(ev*1000) #add ev to list as meV
-            c=299792458 #speed of light (m/s)
-            e=1.60217662E-19 #charge of electron (C)
-            m_e=9.10938356E-31 #mass of electron (kg)
-            w_c=c/(1240/(ev)*(10**-9)) #cyclotron resonance frequency
-            effective_mass=e*B/w_c/2/m_e/math.pi #effective mass (m*/m_e), removed field scaling for now
+            c=const.c #speed of light (m/s)
+            e=const.e #charge of electron (C)
+            m_e=const.m_e #mass of electron (kg)
+            w_c=c/(1240/(ev)*(10**(-9))) #cyclotron resonance frequency
+            effective_mass=e*B/w_c/2/m_e/const.pi #effective mass (m*/m_e), removed field scaling for now
             m_list.append(effective_mass) #add m* to list
 
             fig,ax=plt.subplots(figsize=(2,4))
@@ -274,14 +320,15 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
             baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
             ax.add_line(baseline) #add baseline to plot
             plt.legend(loc=0)
-            # plt.text(1.2,-0.5,'%.3f meV\n%.3f m*' % (ev,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
-            plt.text(0,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1})
+            plt.text(3,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1}) #places text according to graph x,y coords
             plt.savefig(str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
     average_ev = np.mean(ev_list)
     std_dev_ev = np.std(ev_list)
     average_m = np.mean(m_list)
     std_dev_m = np.std(m_list)
-    return average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list, B_list
+    zdf = pd.DataFrame(list(zip(B_list,ev_list,m_list)),columns=['B','E_Z','m*'])
+
+    return average_ev, std_dev_ev, average_m, std_dev_m, zdf
 
 def openHTML(f,title):
     f.write("<!DOCTYPE html>\n")
@@ -371,8 +418,9 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 03-31-21 NIR/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 03-31-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/ABS 03-29-21/") #calculated abs data in dataframe
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
 
 # raw_mcd_dic = parse_mcd("") #USB
 # df_abs = parse_abs("") #USB
@@ -395,7 +443,6 @@ plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
 plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
 
 '''mcd difference with blank'''
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
 plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 plot_mcd(df_blank_avgs,'avg',title='blank')
@@ -428,7 +475,7 @@ for name, df in df_avgs.items():
         all_pem_channels_added_diff_df[name]['blank_mod'] = np.sqrt(df_blank['pemx']**2 + df_blank['pemy']**2) / np.sqrt(df_blank['chpx']**2 + df_blank['chpy']**2) * 32982
 for name, df in df_avgs.items():
     for df_blank in df_blank_avgs.values():
-        all_pem_channels_added_diff_df[name]['sample-0T'] = (all_pem_channels_added_diff_df[name]['sample_mod'] - all_pem_channels_added_diff_df['0']['sample_mod']) 
+        all_pem_channels_added_diff_df[name]['sample-0T'] = (all_pem_channels_added_diff_df[name]['mdeg'] - all_pem_channels_added_diff_df['0']['mdeg']) 
         all_pem_channels_added_diff_df[name]['modulus_subtracted'] = all_pem_channels_added_diff_df[name]['sample_mod'] - all_pem_channels_added_diff_df[name]['blank_mod'] 
 for name, df in df_avgs.items():
     for df_blank in df_blank_avgs.values():
@@ -444,16 +491,21 @@ plot_abs(df_abs,op='raw')
 plot_abs(df_abs)
 
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, ev_list, m_list, B_list = calc_effective_mass_and_plot(fit_diff,diff_df)
+average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,diff_df)
+print(zdf)
 
 # m, b = np.polyfit(B_list,ev_list,1)
 plt.clf() #Clear all previous plots
-fig,ax=plt.subplots(figsize=(6,3))
-plt.scatter(B_list, ev_list, label="meV")
+fig=plt.figure(figsize=(4,2))
+ax1=fig.add_subplot(111) #need this to add separate series to same graph
+ax1.scatter([x for x in zdf['B'] if x > 0], list(zdf.loc[zdf['B'] > 0,'E_Z']), label=r"$B(+)$",color="b")
+ax1.scatter(np.absolute([x for x in zdf['B'] if x < 0]), list(zdf.loc[zdf['B'] < 0,'E_Z']), label=r"$B(-)$",color="r")
+plt.legend(loc=0)
 # plt.plot(B_list, m*B_list + b)
 plt.xlabel('B (T)')
 plt.xticks(np.arange(0,11,2))
-plt.xlim(1,11)
+ax1.set_xlim(1,11)
+ax1.set_ylim(0,0.24)
 plt.ylabel(r'$E_Z$ (meV)')
 plt.savefig('mev_test_plot.png',dpi=200,bbox_inches='tight')
 plt.show()
