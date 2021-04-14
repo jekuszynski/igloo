@@ -112,7 +112,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
     # ax2.set_xlim(387.5, 2255)
 
     plt.style.use('seaborn-paper')
-    plt.savefig(op + '_mcd_' + title,dpi=200,transparent=False,bbox_inches='tight')
+    plt.savefig(op + '_mcd_' + title,dpi=300,transparent=False,bbox_inches='tight')
     plt.show()
 
 def calc_raw_avg_mcd(dic): #need to define this before finding the mcd difference
@@ -271,12 +271,12 @@ def func(x,ev): #define simulated mcd function from absorbance spectrum
 
     # df_abs['energy'],df_abs['absorbance']
 
-def linear_fit(x,m): #No y int. Should be 0. Assumes E_Z = g*u_B*B (?)
-    y = m*x
-    return y
+# def linear_fit(x,m): #No y int. Should be 0. Assumes E_Z = g*u_B*B (?)
+#     y = m*x
+#     return y
 
-def brilluion_fit(x):
-    return y
+# def brilluion_fit(x):
+#     return y
 
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
@@ -425,9 +425,13 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/ABS 03-29-21/") #calculated abs data in dataframe
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
+# raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/") #raw mcd data in dictionary
+# df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/ABS 03-29-21/") #calculated abs data in dataframe
+# raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
+
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-13-21 NIR 3-1/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 04-07-21 VIS/") #calculated abs data in dataframe
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
 
 # raw_mcd_dic = parse_mcd("") #USB
 # df_abs = parse_abs("") #USB
@@ -520,5 +524,11 @@ plt.show()
 # '''write HTML file report'''
 # # writeHTMLfile('mcd.html','11-11-2020')
 writeHTMLfile_difference('mcd_difference.html','03-30-2021, Both Max Signals')
+
+for field, d in diff_df.items():
+    df = pd.DataFrame(d)
+    df.dropna(how='all')
+    df.drop(columns=['chpx','chpy','pemx','pemy'])
+    df.to_csv(field + '_diff_mcd.csv')
 
 print("...\nDone!")
