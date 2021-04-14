@@ -271,6 +271,13 @@ def func(x,ev): #define simulated mcd function from absorbance spectrum
 
     # df_abs['energy'],df_abs['absorbance']
 
+def linear_fit(x,m): #No y int. Should be 0. Assumes E_Z = g*u_B*B (?)
+    y = m*x
+    return y
+
+def brilluion_fit(x):
+    return y
+
 def calc_effective_mass_and_plot(abs_fit,diff_dic):
     ev_list=[]
     m_list=[]
