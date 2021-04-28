@@ -425,13 +425,13 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-# raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/") #raw mcd data in dictionary
-# df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/ABS 03-29-21/") #calculated abs data in dataframe
-# raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/VIS/MCD 04-08-21 VIS Both/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/NIR/ABS 04-08-21 NIR/") #calculated abs data in dataframe
+raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
 
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-13-21 NIR 3-1/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 04-07-21 VIS/") #calculated abs data in dataframe
-raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
+# raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-13-21 NIR 3-1/") #raw mcd data in dictionary
+# df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 04-07-21 VIS/") #calculated abs data in dataframe
+# raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
 
 # raw_mcd_dic = parse_mcd("") #USB
 # df_abs = parse_abs("") #USB
@@ -504,6 +504,7 @@ plot_abs(df_abs)
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
 average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,diff_df)
 print(zdf)
+zdf.to_csv('zeeman_data.csv')
 
 # m, b = np.polyfit(B_list,ev_list,1)
 plt.clf() #Clear all previous plots
@@ -525,10 +526,23 @@ plt.show()
 # # writeHTMLfile('mcd.html','11-11-2020')
 writeHTMLfile_difference('mcd_difference.html','03-30-2021, Both Max Signals')
 
+xldf = pd.DataFrame()
 for field, d in diff_df.items():
     df = pd.DataFrame(d)
-    df.dropna(how='all')
-    df.drop(columns=['chpx','chpy','pemx','pemy'])
-    df.to_csv(field + '_diff_mcd.csv')
+    df.dropna(axis=1,how='all',inplace=True)
+    df.dropna(how='any',inplace=True)
+    df.drop(['chpx','chpy','field','pemx','pemy','energy'],axis=1,inplace=True)
+    rename_list = {'deltaA':'{}_deltaA'.format(field),'mdeg':'{}_mdeg'.format(field),'zero_subtracted':'{}_zero_subtracted'.format(field)}
+    df.rename(columns=rename_list,inplace=True)
+    # print(df)
+    try:
+        xldf = xldf.merge(df, how='inner', on='wavelength')
+    except KeyError:
+        xldf = df
+
+xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
+xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
+xldf.set_index('wavelength',inplace=True)
+xldf.to_csv('04-27-2021'+'_worked_up_diff_mcd.csv')
 
 print("...\nDone!")
