@@ -204,8 +204,15 @@ def parse_abs(path):
     df_abs=pd.DataFrame(data=(d_abs['Ems']['wavelength'], d_abs['Ems']['energy'], d_abs['Ems']['chpx'], d_abs['Blank']['chpx'])).transpose() #make dataframe from ems/blank dictionary
     df_abs.columns=['wavelength','energy','ems','blank'] #setup columns
     df_abs['absorbance']=(2-np.log10(100 * df_abs['ems'] / df_abs['blank'])) #calculate absorbance from emission and blank data
-    df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],25,2) #smooth absorbance plot using Savitzky-Golay
+    df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],29,2) #smooth absorbance plot using Savitzky-Golay
     df_abs = df_abs[df_abs.wavelength < 1700] #remove collection greater than 1700 nm (used for InGaAs errors mainly)
+    return df_abs
+
+def parse_lambda_950_abs(path):
+    d_abs = {}
+    df_abs=pd.read_csv(path, header=0, names=['wavelength','absorbance'])
+    df_abs['energy']=1240/df_abs['wavelength'] #calculate energy from wavelength
+    df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],59,3) #smooth absorbance plot using Savitzky-Golay
     return df_abs
 
 def plot_abs(df,op='smooth',x_axis='energy'):
@@ -284,8 +291,8 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
     B_list=[]
     for field in diff_dic.keys():
         if field is not '0':
-            xdata=diff_dic[field].loc[diff_dic[field]['energy'] < 2.0,'energy']
-            ydata=diff_dic[field].loc[diff_dic[field]['energy'] < 2.0,'zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
+            xdata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.8, 2.0, inclusive=True),'energy']
+            ydata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.8, 2.0, inclusive=True),'zero_subtracted'] / 32982  # divided by mdeg conversion to obtain deltaA
             
             # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
 
@@ -297,9 +304,9 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic):
             ydata_normalized=ydata/(np.max(df_abs['absorbance']))
             ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
             if B_fit < 0:
-                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.0002,method='trf',bounds=(0.00001,0.00070)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.0002,method='trf',bounds=(0.00001,0.001)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
             if B_fit > 0:
-                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.0002,method='trf',bounds=(-0.00070,-0.00001)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.00001,method='trf',bounds=(-0.001,-0.00001)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
 
             # if B_fit < 0:
             #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,0],[0.00070,0.001])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
@@ -425,8 +432,9 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/VIS/MCD 04-08-21 VIS Both/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/NIR/ABS 04-08-21 NIR/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/MCD 04-28-21 VIS 5-1/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/ABS 04-27-21 NIR 5-1/") #calculated abs data in dataframe
+# df_abs = parse_lambda_950_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/Lambda_Abs/CuFeS2-2.Sample.Raw.csv")
 raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
 
 # raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-13-21 NIR 3-1/") #raw mcd data in dictionary
