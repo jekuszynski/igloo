@@ -203,6 +203,7 @@ def parse_abs(path):
                 d_abs[dic_name] = df #send dataframe to dictionary
     df_abs=pd.DataFrame(data=(d_abs['Ems']['wavelength'], d_abs['Ems']['energy'], d_abs['Ems']['chpx'], d_abs['Blank']['chpx'])).transpose() #make dataframe from ems/blank dictionary
     df_abs.columns=['wavelength','energy','ems','blank'] #setup columns
+    df_abs=df_abs[(df_abs != 0).all(1)] #remove rows with 0's.
     df_abs['absorbance']=(2-np.log10(100 * df_abs['ems'] / df_abs['blank'])) #calculate absorbance from emission and blank data
     df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],29,2) #smooth absorbance plot using Savitzky-Golay
     df_abs = df_abs[df_abs.wavelength < 1700] #remove collection greater than 1700 nm (used for InGaAs errors mainly)
@@ -432,8 +433,8 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/MCD 04-28-21 VIS 5-1/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/ABS 04-27-21 NIR 5-1/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/MCD 05-14-21 VIS 5-1/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/ABS 05-17-21 5-1/NIR/Use/") #calculated abs data in dataframe
 # df_abs = parse_lambda_950_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/Lambda_Abs/CuFeS2-2.Sample.Raw.csv")
 raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
 
