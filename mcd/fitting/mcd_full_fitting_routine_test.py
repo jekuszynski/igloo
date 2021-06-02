@@ -269,13 +269,13 @@ def eV_to_nm(eV):
     nm = 1240/eV 
     return "%.0f" % nm
 
-def func(x,ev): #define simulated mcd function from absorbance spectrum
+def func(x,ev,y): #define simulated mcd function from absorbance spectrum
     coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
     LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
 
-    return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+    return LCP-RCP-y #return y from LCP-RCP, Note: may need to flip this depending on spectrum
 
     # df_abs['energy'],df_abs['absorbance']
 
@@ -293,8 +293,8 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic,correction_factor=1):
     B_list=[]
     for field in diff_dic.keys():
         if field is not '0':
-            xdata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.8, 2.0, inclusive=True),'energy']
-            ydata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.8, 2.0, inclusive=True),'avg-0T']   
+            xdata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.75, 2.0, inclusive=True),'energy']
+            ydata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.75, 2.0, inclusive=True),'avg-0T']   
             
             # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
 
@@ -305,15 +305,15 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic,correction_factor=1):
 
             ydata_normalized=ydata/(np.max(df_abs['absorbance'])*correction_factor) / 32982 # divided by mdeg conversion to obtain deltaA
             ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
-            if B_fit < 0:
-                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.0002,method='trf',bounds=(0.00001,0.001)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
-            if B_fit > 0:
-                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.00001,method='trf',bounds=(-0.001,-0.00001)) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
-
             # if B_fit < 0:
-            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,0],[0.00070,0.001])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
+            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.00001,method='trf',bounds=(0.000005,0.001)) #lsf optimization to spit out zeeman split mev, guess is 10^-3 eV
             # if B_fit > 0:
-            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.001],[-0.00001,0])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.00001,method='trf',bounds=(-0.001,-0.000005)) #lsf optimization to spit out zeeman split mev.
+
+            if B_fit < 0:
+                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,-0.01],[0.00070,0.01])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
+            if B_fit > 0:
+                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.01],[-0.00001,0.01])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
 
             # print(popt)
             # print(pcov) #list of residuals
@@ -436,17 +436,16 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/NIR/MCD 04-13-21 NIR 3-1/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/NIR/ABS 04-08-21 NIR/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/NIR/MCD 03-31-21 NIR/") #raw mcd data in dictionary
+df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/ABS 03-29-21/") #calculated abs data in dataframe
 # df_abs = parse_lambda_950_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/Lambda_Abs/Cu3FeS4.Sample.Raw.csv")
 # raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
 
-# raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-13-21 NIR 3-1/") #raw mcd data in dictionary
-# df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 04-07-21 VIS/") #calculated abs data in dataframe
+# #Laptop paths
+# raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-08-21 VIS 3-1/") #raw mcd data in dictionary
+# df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 04-08-21 NIR/") #calculated abs data in dataframe
 # raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
 
-# raw_mcd_dic = parse_mcd("") #USB
-# df_abs = parse_abs("") #USB
 
 '''fit raw and avg mcd straight from datafile - no workup'''
 plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
@@ -514,7 +513,7 @@ plot_abs(df_abs,op='raw')
 plot_abs(df_abs)
 
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,df_avgs,1)
+average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,df_avgs,0.2)
 print(zdf)
 zdf.to_csv('zeeman_data.csv')
 
