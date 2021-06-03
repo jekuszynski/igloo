@@ -275,7 +275,8 @@ def func(x,ev,y): #define simulated mcd function from absorbance spectrum
     LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
     RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
 
-    return LCP-RCP-y #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+    # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+    return LCP-RCP-y #switch to this if doing y adjustment
 
     # df_abs['energy'],df_abs['absorbance']
 
@@ -304,7 +305,7 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic,correction_factor=1):
             B_list.append(B_fit)
 
             ydata_normalized=ydata/(np.max(df_abs['absorbance'])*correction_factor) / 32982 # divided by mdeg conversion to obtain deltaA
-            ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
+            # ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
             # if B_fit < 0:
             #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.00001,method='trf',bounds=(0.000005,0.001)) #lsf optimization to spit out zeeman split mev, guess is 10^-3 eV
             # if B_fit > 0:
@@ -436,8 +437,8 @@ def writeHTMLfile_difference(file_name,report_date):
 
 '''parse all data files'''
 #Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/NIR/MCD 03-31-21 NIR/") #raw mcd data in dictionary
-df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/ABS 03-29-21/") #calculated abs data in dataframe
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/MCD 05-18-21 NIR 5-1/") #raw mcd data in dictionary
+df_abs =      parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/ABS 05-17-21 5-1/NIR/Use/") #calculated abs data in dataframe
 # df_abs = parse_lambda_950_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/Lambda_Abs/Cu3FeS4.Sample.Raw.csv")
 # raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 Blank/")
 
@@ -464,7 +465,7 @@ for name, df in df_avgs.items():
 # plot_mcd(df_avgs,'avg',title='0T_total_mod_sub',ydata='0T_total_mod_sub')
 plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
 
-'''mcd difference with blank'''
+'''---mcd difference with blank---'''
 # plot_mcd(raw_mcd_dic_blank,'raw',title='blank')
 # df_blank_avgs = calc_raw_avg_mcd(raw_mcd_dic_blank)
 # plot_mcd(df_blank_avgs,'avg',title='blank')
@@ -508,12 +509,14 @@ plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
     # plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_modulus',ydata='modulus_subtracted')
     # plot_mcd(all_pem_channels_added_diff_df,'avg',title='sub_modulus_zero_subtracted',ydata='sub_mod_zero_subtracted')
 
+'''---end---'''
+
 # '''perform absorbance simulation data fitting operations'''
 plot_abs(df_abs,op='raw')
 plot_abs(df_abs)
 
 fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,df_avgs,0.2)
+average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,df_avgs,1)
 print(zdf)
 zdf.to_csv('zeeman_data.csv')
 
@@ -552,9 +555,14 @@ for field, d in df_avgs.items():
     except KeyError:
         xldf = df
 
+#Make this a function
 xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
 xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
 xldf.set_index('wavelength',inplace=True)
-xldf.to_csv('3-1CFS'+'_worked_up_diff_mcd.csv')
+xldf.to_csv('CFS'+'_worked_up_diff_mcd.csv')
+
+# WIP
+# xl_abs = df_abs.set_index('wavelength', inplace=True)
+# df_abs.to_csv('CFS'+'_abs.csv')
 
 print("...\nDone!")
