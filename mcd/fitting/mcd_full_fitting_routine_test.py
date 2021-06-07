@@ -12,8 +12,15 @@ from scipy import signal,optimize,integrate,constants as const
 import math
 import matplotlib as mpl
 from pylab import cm
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 
 plt.rcParams.update({'figure.max_open_warning': 0}) #Remove figure creation RuntimeWarning.
+
+def getWavelength(eV):
+    return 1240/eV
+
+def getEnergy(nm):
+    return 1240/nm
 
 def parse_mcd(path):
     d={}
@@ -81,35 +88,38 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
         plt.title("Raw MCD " + title)
     if op=='avg':
         plt.title("Averaged MCD " + title)
-    ax.set_ylabel('MCD (mdeg)')
-
-    # ax.xaxis.set_tick_params(which='major', size=5, width=1, direction='in', top='on')
-    # ax.xaxis.set_tick_params(which='minor', size=2, width=1, direction='in', top='on')
-    # ax.yaxis.set_tick_params(which='major', size=5, width=1, direction='in', right='on')
-    # ax.yaxis.set_tick_params(which='minor', size=2, width=1, direction='in', right='on')
-
-    # ax.xaxis.set_major_locator(mpl.ticker.MultipleLocator(0.5))
-    # ax.xaxis.set_minor_locator(mpl.ticker.MultipleLocator(0.25))
-    # ax.yaxis.set_major_locator(mpl.ticker.MultipleLocator(20))
-    # ax.yaxis.set_minor_locator(mpl.ticker.MultipleLocator(10))
-
-    ax.set_xlim(3.2,.55)
-    ax.set_ylim(-48,48)
     
-    # ax2=ax.twiny()
-    # x_1, x_2 = ax.get_xlim()
-    # ax2.set_xlim(eV_to_nm(x_1),eV_to_nm(x_2))
+    ax.plot([-10,10],[0,0],color='black',linestyle='-',linewidth='1') #add 0T baseline
 
-    # ax2.xaxis.set_tick_params(which='major', size=5, width=1, direction='in')
-    # ax2.xaxis.set_tick_params(which='minor', size=2, width=1, direction='in')
+    # ax.set_ylabel(r'$\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)')
+    ax.set_ylabel('MCD (mdeg)')
+    ax.set_xlim(2.7,1.2)
+    ax.xaxis.set_major_locator(MultipleLocator(0.2))
+    ax.xaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
+    ax.set_ylim(-1.5,1.5)
+    ax.yaxis.set_major_locator(MultipleLocator(0.5))
+    ax.yaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
+    
+    ax2 = ax.twiny() # creates a new axis with invisible y and independent x on opposite side of first x-axis
+    ax2.set_xlabel(r'Wavelength (nm)')
+    ax2.set_xscale('function',functions=(getWavelength,getEnergy)) # set twin scale (convert degree eV to nm)
+    xmin, xmax = ax.get_xlim() # get left axis limits
+    ax2.set_xlim((getWavelength(xmax),getWavelength(xmin))) # apply function and set transformed values to right axis limits
+    ax2.xaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
+    
+    ax2.plot([],[]) # set an invisible artist to twin axes to prevent falling back to initial values on rescale events
 
-    # ax2.xaxis.set_major_locator(mpl.ticker.FixedLocator(nm_to_eV(np.linspace(500, 1500, 3))))
-    # ax2.xaxis.set_minor_locator(mpl.ticker.FixedLocator(nm_to_eV(np.linspace(300, 1700, 15))))
+    #Set tick parameters    
+    ax.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in') #axes.linewidth by default for matplotlib is 0.8, so that value is used here for aesthetic matching.
+    ax.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in')
+    ax.yaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', right='on')
+    ax.yaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', right='on')
 
-    # ax2.set_xticklabels(['500', '1000', '1500'])
+    ax2.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in')
+    ax2.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in')
 
-    # ax2.set_xlabel(r'$\mathregular{\lambda}$ (nm)')
-    # ax2.set_xlim(387.5, 2255)
+    # plt.style.use('classic') #Doesn't seem to affect plot.
+    plt.tight_layout()
 
     plt.style.use('seaborn-paper')
     plt.savefig(op + '_mcd_' + title,dpi=300,transparent=False,bbox_inches='tight')
@@ -261,13 +271,13 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
 
     return fit_diff
 
-def nm_to_eV(nm):
-    eV = 1240 / nm
-    return ["%.3f" % z for z in eV]
+# def nm_to_eV(nm):
+#     eV = 1240 / nm
+#     return ["%.3f" % z for z in eV]
 
-def eV_to_nm(eV):
-    nm = 1240/eV 
-    return "%.0f" % nm
+# def eV_to_nm(eV):
+#     nm = 1240/eV 
+#     return "%.0f" % nm
 
 def func(x,ev,y): #define simulated mcd function from absorbance spectrum
     coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
@@ -297,14 +307,11 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic,correction_factor=1):
             xdata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.75, 2.0, inclusive=True),'energy']
             ydata=diff_dic[field].loc[diff_dic[field]['energy'].between(0.75, 2.0, inclusive=True),'avg-0T']   
             
-            # all_pem_channels_added_diff_df[name]['sub_mod_zero_subtracted'] ? 
-
-            # Perhaps I'm using either wrong dictionary, wrong ydata, OR I'm just using the func() wrong. Maybe mimic like plotted above?
             B_fit=int(field) #used for meV plotting later in zdf
             B=np.absolute(B_fit) #magnetic field (T)
             B_list.append(B_fit)
 
-            ydata_normalized=ydata/(np.max(df_abs['absorbance'])*correction_factor) / 32982 # divided by mdeg conversion to obtain deltaA
+            ydata_normalized=ydata/(np.max(df_abs['absorbance'])*correction_factor) / 32982 # divided by mdeg conversion to obtain deltaA/A_Max
             # ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
             # if B_fit < 0:
             #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.00001,method='trf',bounds=(0.000005,0.001)) #lsf optimization to spit out zeeman split mev, guess is 10^-3 eV
@@ -317,17 +324,17 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic,correction_factor=1):
                 popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.01],[-0.00001,0.01])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
 
             # print(popt)
-            # print(pcov) #list of residuals
-            ev=np.absolute(popt[0]) #return absolute val of minimzed ev to variable
+            print(pcov) #list of residuals
+            ev=popt[0] #return absolute val of minimzed ev to variable
             ev_list.append(ev*1000) #add ev to list as meV
             std_dev_of_fit=(np.sqrt(np.diag(pcov))*1000)[0] #return std dev of fitting
             std_dev_fit_list.append(std_dev_of_fit) #add std dev fit
-            c=const.c #speed of light (m/s)
+            # c=const.c #speed of light (m/s)
             e=const.e #charge of electron (C)
             m_e=const.m_e #mass of electron (kg)
-            w_c=c/(1240/(ev)*(10**(-9))) #cyclotron resonance frequency
+            w_c=ev/const.physical_constants['Planck constant in eV/Hz'][0] #cyclotron resonance frequency from Planck constant in eV/Hz
             effective_mass=e*B/w_c/2/m_e/const.pi #effective mass (m*/m_e)
-            m_list.append(effective_mass) #add m* to list
+            m_list.append(np.absolute(effective_mass)) #add m* to list
 
             fig,ax=plt.subplots(figsize=(2,4))
             plt.title(str(field) + 'T Fit')
@@ -560,9 +567,5 @@ xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
 xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
 xldf.set_index('wavelength',inplace=True)
 xldf.to_csv('CFS'+'_worked_up_diff_mcd.csv')
-
-# WIP
-# xl_abs = df_abs.set_index('wavelength', inplace=True)
-# df_abs.to_csv('CFS'+'_abs.csv')
 
 print("...\nDone!")
