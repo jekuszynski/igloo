@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as colors
-import matplotlib.lines as lines
 import seaborn as sns
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 
