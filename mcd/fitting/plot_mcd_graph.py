@@ -100,7 +100,7 @@ def calc_raw_avg_mcd(dic): #need to define this before finding the mcd differenc
 plt.clf() #Clear all previous plots
 
 '''parse all data files'''
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/VIS/MCD 04-08-21 VIS Both/") #raw mcd data in dictionary
+raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 VIS/") #raw mcd data in dictionary
 
 '''fit raw and avg mcd straight from datafile - no workup'''
 df_avgs = calc_raw_avg_mcd(raw_mcd_dic)
@@ -109,13 +109,13 @@ df_avgs = calc_raw_avg_mcd(raw_mcd_dic)
 for name, df in df_avgs.items():
     df_avgs[name]['avg-0T'] = (df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']) / 32982 * 1000
 
-#Uncomment below if need to merge separate data sets
-# raw_mcd_dic2 = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/")
-# df_avgs2 = calc_raw_avg_mcd(raw_mcd_dic2)
-# for name, df in df_avgs2.items():
-#     df_avgs2[name]['avg-0T'] = (df_avgs2[name]['mdeg'] - df_avgs2['0']['mdeg']) / 32982 * 1000
-# df_avgs.update(df_avgs2)
+# Uncomment below if need to merge separate data sets
+raw_mcd_dic2 = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/")
+df_avgs2 = calc_raw_avg_mcd(raw_mcd_dic2)
+for name, df in df_avgs2.items():
+    df_avgs2[name]['avg-0T'] = (df_avgs2[name]['mdeg'] - df_avgs2['0']['mdeg']) / 32982 * 1000
+df_avgs.update(df_avgs2)
 
-plot_mcd(df_avgs,'avg',title='3-1 CFS VIS',ydata='avg-0T')
+plot_mcd(df_avgs,'avg',title='7-1 CFS VIS',ydata='avg-0T')
 
 print("...\nDone!")

@@ -46,14 +46,24 @@ def calc_raw_avg_mcd(dic): #need to define this before finding the mcd differenc
 
 def plot_all_mcd(dic_list):
     #prepare figure with subplot spacings
-    fig,ax=plt.subplots(2,3,figsize=(16,8))
+    fig,ax=plt.subplots(2,3,figsize=(9,4.5))
 
     #add color bar
-    fig.subplots_adjust(right=0.8)
+    fig.subplots_adjust(right=0.8, wspace=0.05, hspace=0.3)
+    # use as needed (top=0.9, bottom=0.1, left=0.1, )
     norm=plt.Normalize(-10,10)
     sm=plt.cm.ScalarMappable(cmap='coolwarm_r',norm=norm) 
-    cbar_ax=fig.add_axes([0.85, 0.15, 0.05, 0.7]) #change for position and size???
-    fig.colorbar(sm,ticks=range(-10,11,2),label='H (T)',cax=cbar_ax) #make color bar based on H (T) for plot
+    cbar_ax=fig.add_axes([0.85, 0.095, 0.015, 0.8]) #change for position [0(x),1(y)] and size [2(w),3(h)]
+    cb=fig.colorbar(sm,ticks=range(-10,11,2),label='H (T)',cax=cbar_ax) #make color bar based on H (T) for plot
+    # Below: right aligns ticks successfully, however since graph won't work - commenting out for now.
+    # for tick in cb.ax.yaxis.get_majorticklabels():
+    #             tick.set_horizontalalignment("right")
+    #             tick.set_x(2.75) 
+
+    #add absorption peak matching
+    # ax[1,0].plot([1.19,1.19],[-3,3],color='black',linestyle='--',linewidth='1') 
+    # ax[1,1].plot([1.12,1.12],[-3,3],color='black',linestyle='--',linewidth='1') 
+    # ax[1,2].plot([1.19,1.19],[-3,3],color='black',linestyle='--',linewidth='1') 
 
     #make all subplots
     for num, dic in enumerate(dic_list):
@@ -65,25 +75,42 @@ def plot_all_mcd(dic_list):
                     palette=sns.color_palette('coolwarm_r',as_cmap=True),
                     legend=None)
         ax[row,col].plot([-10,10],[0,0],color='black',linestyle='-',linewidth='1') #add 0T baseline
-        ax[1,col].set_xlabel(r'Energy (eV)')
-        ax[row,0].set_ylabel(r'$\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)')
+        if col == 0:
+            ax[row,col].set_ylabel(r'$\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)')
+        if col != 0: 
+            ax[row,col].set_ylabel('')
+        if col == 2:
+            ax[row,col].yaxis.tick_right()
+            ax[row,col].yaxis.set_ticks_position('both')
+            # One day I'll figure out how to align right align right axis ticks.
+            # for tick in ax[row,col].yaxis.get_major_ticks():
+            #     tick.label2.set_horizontalalignment('right')
+
+        if col == 1:
+            ax[row,col].set_yticklabels([])
         if row == 0:
             ax[row,col].set_xlim(2.7,1.2)
             ax[row,col].set_ylim(-1.5,1.5)
+            ax[row,col].set_xlabel('') #set xlabel for top row as empty.
+            ax[row,col].xaxis.set_major_locator(MultipleLocator(0.4))
+            ax[row,col].xaxis.set_minor_locator(MultipleLocator(0.1)) # auto set minor ticks
         if row == 1:
-            ax[row,col].set_xlim(1.65,0.75) #Double check these are right.
-            ax[row,col].set_ylim(-1.0,1.0)
-        ax[row,col].xaxis.set_major_locator(MultipleLocator(0.2))
-        ax[row,col].xaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
+            ax[row,col].set_xlim(1.65,0.75) 
+            ax[row,col].set_ylim(-1.5,1.5)
+            ax[row,col].set_xlabel(r'Energy (eV)') #set xlabel for bottom row only.
+            ax[row,col].xaxis.set_major_locator(MultipleLocator(0.2))
+            ax[row,col].xaxis.set_minor_locator(MultipleLocator(0.1)) # auto set minor ticks
         ax[row,col].yaxis.set_major_locator(MultipleLocator(0.5))
         ax[row,col].yaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
         
         ax2 = ax[row,col].twiny() # creates a new axis with invisible y and independent x on opposite side of first x-axis
-        ax2.set_xlabel(r'Wavelength (nm)')
+        if row == 0:
+            ax2.set_xlabel(r'Wavelength (nm)') #set wavelength label for top row only.
         ax2.set_xscale('function',functions=(getWavelength,getEnergy)) # set twin scale (convert degree eV to nm)
         xmin, xmax = ax[row,col].get_xlim() # get left axis limits
         ax2.set_xlim((getWavelength(xmax),getWavelength(xmin))) # apply function and set transformed values to right axis limits
-        ax2.xaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
+        ax2.xaxis.set_major_locator(MultipleLocator(300)) #set wavelength x-axis spacing
+        ax2.xaxis.set_minor_locator(MultipleLocator(50)) #set minor ticks
         
         ax2.plot([],[]) # set an invisible artist to twin axes to prevent falling back to initial values on rescale events
 
@@ -99,28 +126,23 @@ def plot_all_mcd(dic_list):
     # plt.style.use('classic') #Doesn't seem to affect plot.    
 
     # plt.tight_layout()
-    # plt.savefig('Figure2.pdf',transparent=False,bbox_inches='tight')
+    plt.savefig('Figure2.pdf',transparent=False,bbox_inches='tight')
     plt.savefig('Figure2.png',transparent=False,bbox_inches='tight',dpi=300)
     plt.show()
 
 '''-------------------------------FUNCTIONAL CODE BELOW-------------------------------'''
 
 
-
 plt.clf() #Clear all previous plots
 
-df_7_CFS_VIS = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 VIS/")) 
+df_7_CFS_VIS = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/")) 
 df_5_CFS_VIS = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/MCD 05-17-21 VIS 5-1/"))
 df_3_CFS_VIS = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/VIS/MCD 04-08-21 VIS Both/"))
 df_7_CFS_NIR = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/NIR/MCD 04-02-21/"))
 df_5_CFS_NIR = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/MCD 05-18-21 NIR 5-1/"))
 df_3_CFS_NIR = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/3-1 CFS/NIR/MCD 04-13-21 NIR 3-1/"))
  
-df_7_CFS_VIS_2 = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/")) #use for second data set for merging
-
-for name, df in df_7_CFS_VIS_2.items():
-    df_7_CFS_VIS_2[name]['avg-0T'] = (df_7_CFS_VIS_2[name]['mdeg'] - df_7_CFS_VIS_2['0']['mdeg']) / 32982 * 1000
-df_7_CFS_VIS.update(df_7_CFS_VIS_2) #change variable to whichever df needs to be updated above.
+df_7_CFS_VIS_2 = calc_raw_avg_mcd(parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 VIS/")) #use for second data set for merging
 
 mcd_list=[df_7_CFS_VIS,
             df_5_CFS_VIS,
@@ -132,6 +154,10 @@ mcd_list=[df_7_CFS_VIS,
 for df_avgs in mcd_list:
     for name, df in df_avgs.items():
         df_avgs[name]['avg-0T'] = (df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']) / 32982 * 1000
+
+for name, df in df_7_CFS_VIS_2.items():
+    df_7_CFS_VIS_2[name]['avg-0T'] = (df_7_CFS_VIS_2[name]['mdeg'] - df_7_CFS_VIS_2['0']['mdeg']) / 32982 * 1000
+df_7_CFS_VIS.update(df_7_CFS_VIS_2) #change variable to whichever df needs to be updated above.
 
 plot_all_mcd(mcd_list)
 
