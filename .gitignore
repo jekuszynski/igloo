@@ -1,3 +1,5 @@
 # ignore experimental CFS files
 CFS*/
 *CFS/
+# ignore pump_probe from AFRL
+/pump_probe
