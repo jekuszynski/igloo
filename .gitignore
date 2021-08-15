@@ -2,4 +2,4 @@
 CFS*/
 *CFS/
 # ignore pump_probe from AFRL
-/pump_probe
+abs/pump_probe/Cs_fitting.py
