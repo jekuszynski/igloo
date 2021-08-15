@@ -1,5 +1,4 @@
 # ignore experimental CFS files
 CFS*/
 *CFS/
-# ignore pump_probe from AFRL
 abs/pump_probe/Cs_fitting.py
