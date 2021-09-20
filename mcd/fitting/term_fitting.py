@@ -1,6 +1,7 @@
 from math import exp
 import sys
 import os
+from numpy.ma import compress_cols
 import pandas as pd
 import numpy as np
 from matplotlib import gridspec, pyplot as plt
@@ -20,6 +21,16 @@ def getEnergy(nm):
 def fwhm(fwhm):
     b = 4 * np.log(2) / fwhm**2
     return b
+
+def twin_axis(ax,xlabel=r'Wavelength (nm)'):
+    new_ax = ax.twiny()
+    new_ax.set_xlabel(xlabel)
+    new_ax.set_xscale('function',functions=(getWavelength,getEnergy)) # set twin scale (convert degree eV to nm)
+    xmin, xmax = ax.get_xlim() # get left axis limits
+    new_ax.set_xlim((getWavelength(xmax),getWavelength(xmin))) # apply function and set transformed values to right axis limits
+    new_ax.xaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
+    new_ax.plot([],[]) # set an invisible artist to twin axes to prevent falling back to initial values on rescale events
+    return new_ax    
 
 def parse_csv(path):
     # use_mdeg = np.r_[0:2,#:#] #not sure if I'll ever want to use this
@@ -216,52 +227,92 @@ if __name__ == '__main__':
     # a_term_model = ExpressionModel('ampA * (x-cen) * exp(-wid*(x-cen)**2)')
     # b_term_model = ExpressionModel('ampB * exp(-wid*(x-cen)**2)')
 
-    ab_term_model = ExpressionModel('ampA * (x-cen) * exp(-wid*(x-cen)**2) + ampB * exp(-wid*(x-cen)**2)')
+    ab_term_model1 = ExpressionModel('ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)')
+    ab_term_model2 = ExpressionModel('ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)')
+    ab_term_model3 = ExpressionModel('ampA3 * (x-cen3) * exp(-wid3*(x-cen3)**2) + ampB3 * exp(-wid3*(x-cen3)**2)')
+    ab_term_model4 = ExpressionModel('ampA4 * (x-cen4) * exp(-wid4*(x-cen4)**2) + ampB2 * exp(-wid4*(x-cen4)**2)')
 
+    pars = ab_term_model1.make_params()
+    pars['ampA1'].set(value=0.002, min=0, max=2)
+    pars['ampB1'].set(value=0, vary=False)
+    pars['cen1'].set(value=1150,vary=False)
+    pars['wid1'].set(fwhm(500))
 
-    pars = ab_term_model.make_params(ampA=0.002, ampB=0, cen=1175, wid=fwhm(500))
-    # pars += b_term_model.make_params(ampB=0.5)
+    pars.update(ab_term_model2.make_params())
+    pars['ampA2'].set(value=0.002, min=0, max=2)
+    pars['ampB2'].set(value=0, vary=False)
+    pars['cen2'].set(value=1100,vary=False)
+    pars['wid2'].set(fwhm(500))
 
-    # mixed_term_model = a_term_model + b_term_model
-    fitting_result = ab_term_model.fit(y, pars, x=x)
+    ab_term_model_total = ab_term_model1+ab_term_model2
 
-    print(fitting_result.fit_report())
+    init_fit = ab_term_model_total.eval(pars, x=x)
+    fitting_result = ab_term_model_total.fit(y, pars, x=x)
 
-    fig = plt.figure(figsize=(4,4))
+    print(fitting_result.fit_report(min_correl=0.5))
+
+    comps = fitting_result.eval_components(x=x)
+    print(comps)
+
+    plt.clf()
+    fig = plt.figure(figsize=(6,4))
     gs = gridspec.GridSpec(2,1, height_ratios=[1,1])
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
-    gs.update(hspace=0)
+    
+    ax1.plot([0,2000],[0,0],'k-',lw=0.8)
     ax1.plot(x, y, 'k-', label='raw data')
     # ax1.plot(x, fitting_result.init_fit, 'k--', label='initial fit')
     ax1.plot(x, fitting_result.best_fit, 'r-', label='best fit')
+    ax1.plot(x, comps[0],'g--',label='ab_1')
+    ax1.plot(x, comps[1],'m--',label='ab_2')
     ax1.legend(loc='best')
-    ax2.set_xlabel(r'Wavelength, (nm)')
-    ax1.set_ylabel(r'MCD, $\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)',labelpad=10)
-    ax2.set_ylabel(r'Absorbance, A (a.u.)',labelpad=17)
+    ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')
+    ax1.set_ylabel(r'MCD, $\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)',labelpad=6, size=9)
+    ax2.set_ylabel(r'Absorbance, A (a.u.)',labelpad=14,size=9)
+
+    ax1.set_xlim(400, 1600)
+    ax2.set_xlim(ax1.get_xlim())
+    ax2.set_ylim(0.1,1.2)
+    ax1.set_ylim(-1.4,1.4)
+
+    ax3 = twin_axis(ax1)
+    ax4 = twin_axis(ax2)
 
     ax1.xaxis.set_major_formatter(plt.NullFormatter())
-
-    ax1.xaxis.set_major_locator(MultipleLocator(100))
-    ax2.xaxis.set_major_locator(MultipleLocator(100))
+    ax4.xaxis.set_major_formatter(plt.NullFormatter())
+    ax3.set_xlabel(r'Energy, $h\nu$ (eV)')
+    ax4.set_xlabel('')
+    
+    ax1.xaxis.set_major_locator(MultipleLocator(200))
+    ax2.xaxis.set_major_locator(MultipleLocator(200))
     # ax2.yaxis.set_major_locator(MultipleLocator(10))
 
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     ax2.xaxis.set_minor_locator(AutoMinorLocator())
     ax2.yaxis.set_minor_locator(AutoMinorLocator())
+    ax3.xaxis.set_minor_locator(AutoMinorLocator())
+    ax4.xaxis.set_minor_locator(AutoMinorLocator())
 
     ax1.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', bottom='off') #axes.linewidth by default for matplotlib is 0.8, so that value is used here for aesthetic matching.
     ax1.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', bottom='off')
     ax1.yaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', right='on', bottom='off')
     ax1.yaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', right='on', bottom='off')
 
-    ax2.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', bottom='on') #axes.linewidth by default for matplotlib is 0.8, so that value is used here for aesthetic matching.
-    ax2.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', bottom='on')
-    ax2.yaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', right='on', top='off')
-    ax2.yaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', right='on', top='off')
+    ax2.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', bottom=True) #axes.linewidth by default for matplotlib is 0.8, so that value is used here for aesthetic matching.
+    ax2.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', bottom=True)
+    ax2.yaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', right=True, top=False)
+    ax2.yaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', right=True, top=False)
 
-    fig.tight_layout()
+    ax3.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', bottom=False, top=True) 
+    ax3.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', bottom=False, top=True)
+    ax4.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', bottom=False, top=True) 
+    ax4.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', bottom=False, top=True)
+
+
+    gs.tight_layout(fig)
+    gs.update(hspace=0)
     plt.show()
     plt.savefig('fitting.png', format='png',dpi=300)
 

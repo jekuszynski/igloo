@@ -5,11 +5,10 @@ import numpy as np
 from matplotlib import gridspec, pyplot as plt
 import matplotlib.colors as colors
 import seaborn as sns
-from scipy import optimize
-from scipy.stats import linregress
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-import numpy.polynomial.polynomial as poly
+from scipy.signal import savgol_filter
+from lmfit.models import GaussianModel, VoigtModel
 
 
 def getWavelength(eV):
@@ -105,7 +104,7 @@ def plot_spectra(df,abs_df,title):
     gs.tight_layout(fig)
     gs.update(hspace=0)
     plt.style.use('seaborn-paper')
-    plt.savefig('fitting.png',format='png',dpi=300)
+    plt.savefig(title,format='png',dpi=300)
     plt.show()
 
 def convert_columns_to_field(df):
@@ -145,6 +144,27 @@ def merge_spectra(vis_data,nir_data,wavelength_match):
 
     return merged_melt
 
+### Use to test SSR for fits
+# win_list = list(range(5,252,4))
+# poly_list = list(range(2,10))
+# testing_array = np.empty((0,3))
+
+# for window_length in win_list:
+#     print("Testing window length of: " + window_length)
+#     for polyorder in poly_list:
+#         if window_length > polyorder:
+#             line_fit = savgol_filter(y, window_length=window_length, polyorder=polyorder, deriv=0)
+#             lsr = 0
+#             for new_val, orig_val in zip(line_fit, y):
+#                 lsr += np.sqrt((orig_val - new_val)**2) + lsr
+#                 testing_array = np.append(testing_array,np.array([[window_length,polyorder,lsr]]),axis=0)
+#         else:
+#             pass
+# # print(testing_array)
+# lsr_df = pd.DataFrame(testing_array, columns=['window_length','polyorder','lsr'])
+# best_fit_lsr = lsr_df['lsr'].idxmin()
+# print(lsr_df.iloc[best_fit_lsr])
+
 if __name__ == '__main__':
     working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
     os.chdir(working_path)
@@ -170,20 +190,82 @@ if __name__ == '__main__':
     '''Find 2nd Der of Abs'''
     x = absorption_spectra_data['wavelength']
     y = absorption_spectra_data['normalized_absorbance']
+    x_ev = absorption_spectra_data['energy']
+    x_set = [x, x_ev]
 
-    raw_coefficients=poly.polyfit(x,y,9)
-    first_derivative_coefficients = np.polyder(raw_coefficients)
-    second_derivative_coefficients = np.polyder(raw_coefficients,2)
-    fit=poly.polyval(x,raw_coefficients)
-    first_der_fit = poly.polyval(x,first_derivative_coefficients)
-    second_der_fit = poly.polyval(x,second_derivative_coefficients)
+    fit = savgol_filter(y, window_length=71, polyorder=3, deriv=0)
+    dy  = savgol_filter(y, window_length=71, polyorder=3, deriv=1)
+    ddy = savgol_filter(y, window_length=71, polyorder=3, deriv=2)
+    ddyy= savgol_filter(y, window_length=15, polyorder=2, deriv=2)
+
+    for num, x in enumerate(x_set):
+        plt.clf()
+        fig = plt.figure(figsize=(6,4))
+        gs = gridspec.GridSpec(1,1)
+        ax1 = fig.add_subplot(gs[0])
+        ax2 = ax1.twinx()
+        line1 = ax1.plot(x, y, 'ko', ms=1, label='raw data')
+        # x_range = np.linspace(x[0],x[-1],1000)
+        line2 = ax1.plot(x, fit, 'k-', lw=1, label='data fit')
+        # plt.plot(x,first_der_fit, 'bo',label='1st der')
+        # plt.plot(x,second_der_fit, '--', label='2nd der')
+        # plt.plot(x,dy,label='1st der')
+        line3 = ax2.plot(x, ddy, 'r-', lw=1, label='2nd der')
+        line4 = ax2.plot(x, ddyy, 'r--', lw=0.5, label='raw 2nd der')
+        all_lines = line1+line2+line3+line4
+        line_labels = [l.get_label() for l in all_lines]
+        ax1.legend(all_lines, line_labels, loc='best')
+        ax1.set_ylabel(r'Absorbance, A (a.u.)')
+        ax2.tick_params(axis='y',colors='red')
+        ax2.set_ylabel(r'2$^{nd}$ Derivative, $\frac{\partial ^{2}A}{\partial x^{2}}$', color='red')
+        if num == 0:
+            ax1.set_xlim(400,1700)
+        if num == 1:
+            ax1.set_xlim(0.73,3.08)
+        gs.tight_layout(fig)
+        plt.show()
+        plt.savefig('2nd_deriv_abs_' + str(num) + '.png',dpi=300)
+
+    '''Find Peaks onto Abs'''
+
+    # a_term_model = ExpressionModel('ampA * (x-cen) * exp(-wid*(x-cen)**2)')
+    # b_term_model = ExpressionModel('ampB * exp(-wid*(x-cen)**2)')
+
+    gauss1 = GaussianModel(prefix='g1_')
+    pars = gauss1.make_params()
+
+    pars['g1_center'].set(value=1.0, min=0.8, max=2)
+    pars['g1_sigma'].set(value=0.2, min=0.05, max=2)
+    pars['g1_amplitude'].set(value=.5, min=.2, max=2)
+
+    gauss2 = GaussianModel(prefix='g2_')
+    pars.update(gauss2.make_params())
+
+    pars['g2_center'].set(value=1.5, min=0.8, max=1.6)
+    pars['g2_sigma'].set(value=0.2, min=0.05, max=2)
+    pars['g2_amplitude'].set(value=.5, min=.2, max=2)
+
+    mod = gauss1 + gauss2
+    
+    init = mod.eval(pars, x=x)
+    output = mod.fit(y, pars, x=x)
+
+    print(output.fit_report())
+
+    x = x_ev
 
     plt.clf()
-    plt.plot(x, y, 'ro',label='raw_data')
-    # x_range = np.linspace(x[0],x[-1],1000)
-    plt.plot(x,fit,'-',label='fit')
-    plt.plot(x,first_der_fit, 'bo',label='1st der')
-    plt.plot(x,second_der_fit, '--', label='2nd der')
-    plt.legend(loc='best')
+    fig, axes = plt.subplots(1, 2, figsize=(12.8, 4.8))
+    axes[0].plot(x, y, 'b')
+    axes[0].plot(x, init, 'k--', label='initial fit')
+    axes[0].plot(x, output.best_fit, 'r-', label='best fit')
+    axes[0].legend(loc='best')
+
+    comps = output.eval_components(x=x)
+    axes[1].plot(x, y, 'b')
+    axes[1].plot(x, comps['g1_'], 'g--', label='Gaussian component 1')
+    axes[1].plot(x, comps['g2_'], 'm--', label='Gaussian component 2')
+    axes[1].legend(loc='best')
+
     plt.show()
-    plt.savefig('2nd_deriv_abs.png',dpi=300)
+    plt.savefig('gauss_fit_on_abs.png',format='png',dpi=300)
