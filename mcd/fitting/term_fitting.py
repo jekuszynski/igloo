@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import gridspec, pyplot as plt
 import matplotlib.colors as colors
+from pandas.core.frame import DataFrame
 import seaborn as sns
 from scipy import optimize
 from scipy.stats import linregress
@@ -214,9 +215,11 @@ if __name__ == '__main__':
     os.chdir(working_path)
 
     data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
+    # data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/3-1CFS_merged_mcd_spectra.csv'
 
     '''Parse Data'''
     data = parse_csv(data_path)
+    # data = pd.read_csv(data_path)
 
     '''Plot Data'''
     new_data = plot_spectra(data,'test_plot') 
@@ -225,25 +228,25 @@ if __name__ == '__main__':
     x = new_data['wavelength']
     y = new_data['deltaA',10]
 
-    # a_term_model = ExpressionModel('ampA * (x-cen) * exp(-wid*(x-cen)**2)')
-    # b_term_model = ExpressionModel('ampB * exp(-wid*(x-cen)**2)')
 
-    def ab_term_model1(x, ampA1, ampB1, cen1, wid1):
-        y = ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)
-        return y
+    def ab_term_model1(x, ampA1, ampB1, cen1, wid1): #np.exp needed, because math.exp only expected single value insert, while np.exp can use array as is needed for lmfit.
+        return (ampA1 * (x-cen1) * np.exp(-wid1*(x-cen1)**2)) + (ampB1 * np.exp(-wid1*(x-cen1)**2))
 
     def ab_term_model2(x, ampA2, ampB2, cen2, wid2):
-        y = ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)
-        return y
+        return (ampA2 * (x-cen2) * np.exp(-wid2*(x-cen2)**2)) + (ampB2 * np.exp(-wid2*(x-cen2)**2))
+    
+    def ab_term_model3(x, ampA3, ampB3, cen3, wid3):
+        return (ampA3 * (x-cen3) * np.exp(-wid3*(x-cen3)**2)) + (ampB3 * np.exp(-wid3*(x-cen3)**2))
+
+    def ab_term_model4(x, ampA4, ampB4, cen4, wid4):
+        return (ampA4 * (x-cen4) * np.exp(-wid4*(x-cen4)**2)) + (ampB4 * np.exp(-wid4*(x-cen4)**2))
 
     ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2)
-
-    
 
     # ab_term_model1 = ExpressionModel('ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)')
     # ab_term_model2 = ExpressionModel('ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)')
     # ab_term_model3 = ExpressionModel('ampA3 * (x-cen3) * exp(-wid3*(x-cen3)**2) + ampB3 * exp(-wid3*(x-cen3)**2)')
-    # ab_term_model4 = ExpressionModel('ampA4 * (x-cen4) * exp(-wid4*(x-cen4)**2) + ampB2 * exp(-wid4*(x-cen4)**2)')
+
 
     ### Might have to 
 
