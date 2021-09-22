@@ -252,20 +252,20 @@ if __name__ == '__main__':
 
     print(output.fit_report())
 
-    x = x_ev
+    # x = x_ev
 
-    plt.clf()
-    fig, axes = plt.subplots(1, 2, figsize=(12.8, 4.8))
-    axes[0].plot(x, y, 'b')
-    axes[0].plot(x, init, 'k--', label='initial fit')
-    axes[0].plot(x, output.best_fit, 'r-', label='best fit')
-    axes[0].legend(loc='best')
+    # plt.clf()
+    # fig, axes = plt.subplots(1, 2, figsize=(12.8, 4.8))
+    # axes[0].plot(x, y, 'b')
+    # axes[0].plot(x, init, 'k--', label='initial fit')
+    # axes[0].plot(x, output.best_fit, 'r-', label='best fit')
+    # axes[0].legend(loc='best')
 
-    comps = output.eval_components(x=x)
-    axes[1].plot(x, y, 'b')
-    axes[1].plot(x, comps['g1_'], 'g--', label='Gaussian component 1')
-    axes[1].plot(x, comps['g2_'], 'm--', label='Gaussian component 2')
-    axes[1].legend(loc='best')
+    # comps = output.eval_components(x=x)
+    # axes[1].plot(x, y, 'b')
+    # axes[1].plot(x, comps['g1_'], 'g--', label='Gaussian component 1')
+    # axes[1].plot(x, comps['g2_'], 'm--', label='Gaussian component 2')
+    # axes[1].legend(loc='best')
 
-    plt.show()
-    plt.savefig('gauss_fit_on_abs.png',format='png',dpi=300)
+    # plt.show()
+    # plt.savefig('gauss_fit_on_abs.png',format='png',dpi=300)
