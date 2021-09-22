@@ -1,8 +1,10 @@
+import sys
 import os
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 
 def parse_folder(path):
     d={}
@@ -26,42 +28,57 @@ def parse_folder(path):
                 pass
     return d, d2
 
-def plot_abs(dic,xdata='nm',title='[PH]'):
+def plot_abs(dic,xdata='nm',title='[PH]',save=''):
     fig,ax=plt.subplots(figsize=(8,4))
     for name, df in dic.items():
-        sns.lineplot(data=df,x=xdata,y=' A', linewidth=1, label=name, legend='brief')
+        sns.lineplot(data=df,x=xdata,y=' A', linewidth=1, label=name)
+        wavelength_peak = df.loc[df[' A'] == df[' A'].loc[150:1000].max(),'nm'].iloc[0]
+        print(str(wavelength_peak) + ' at ' + name.replace('.', ',').split(',')[1])
+        if xdata == 'nm':
+            plt.plot([wavelength_peak,wavelength_peak],[0,10],'k--',lw=0.8, label=str(wavelength_peak) + ' nm')
+        elif xdata == 'eV':
+            wavelength_peak = round(1240/wavelength_peak,4)
+            plt.plot([wavelength_peak,wavelength_peak],[0,10],'k--',lw=0.8, label=str(wavelength_peak) + ' eV')
     if xdata is 'nm':
         plt.xlabel('Wavelength (nm)')
+        plt.xlim(400,3000)
+        ax.xaxis.set_major_locator(MultipleLocator(200))
     if xdata is 'eV':
         plt.xlabel('Energy (eV)')
+        plt.xlim(4,0.5)
+        ax.xaxis.set_major_locator(MultipleLocator(0.5))
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    plt.ylim(0,1.5)
     plt.title(title +' Absorbance')
     plt.ylabel('Absorbance (a.u.)')
-    # plt.xlim(1.55,.75)
-    # plt.ylim()
+
+    plt.legend(loc='best')
     plt.style.use('seaborn-paper')
-    plt.savefig(title + '_abs',dpi=200,bbox_inches='tight')
+    plt.savefig(save + title + '.png',dpi=200,bbox_inches='tight')
     plt.show()
 
-directory = '/mnt/c/users/roflc/Downloads/3-23-21_scan/'
-# sample_list_path = directory + 'Sample Table.csv'
+if __name__ == '__main__':
 
-sample_files, ref_files = parse_folder(directory)
-print(sample_files)
+    working_path = '/home/jkusz/github/igloo/abs/lambda950/testing/'
+    os.chdir(working_path)
 
-plot_abs(sample_files,title='CFS Tests')
+    data_path = '/mnt/c/users/roflc/Dropbox/Research/FSU/Strouse/Projects/WO3-x/UVVISNIR/WO2,9 scan/'
+    save_directory='/mnt/c/users/roflc/Dropbox/Research/FSU/Strouse/Projects/WO3-x/UVVISNIR/figures/'
+    # save_directory = '/home/jkusz/github/igloo/abs/lambda950/testing/'
 
-# xlabel='Wavelength (nm)'
-# ylabel='Abs'
+    # sample_list_path = directory + 'Sample Table.csv'
 
-# x=df[xlabel]
-# y=df[ylabel]
+    sample_files, ref_files = parse_folder(data_path)
+    # print(sample_files)
 
-# plt.plot(x,y,color='black')
-# plt.xlabel(xlabel)
-# plt.ylabel(ylabel)
-# plt.xlim(275,1100)
-# plt.ylim(0,1)
-# plt.show()
+    plot_abs(sample_files,title='WO2,9',save=save_directory)
+    plot_abs(sample_files,xdata='eV',title='WO2,9_eV',save=save_directory)
 
-# save_directory='/home/jkusz/github/igloo/abs/'
-# plt.savefig(save_directory+name+'.png',dpi=300)
+    # plt.plot(x,y,color='black')
+    # plt.xlabel(xlabel)
+    # plt.ylabel(ylabel)
+    # plt.xlim(320,2000)
+    # plt.ylim(0,1)
+    # plt.show()
+
+    

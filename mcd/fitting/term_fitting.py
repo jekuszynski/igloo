@@ -11,6 +11,7 @@ from scipy import optimize
 from scipy.stats import linregress
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 from lmfit.models import ExpressionModel
+from lmfit import Model
 
 def getWavelength(eV):
     return 1240/eV
@@ -227,33 +228,46 @@ if __name__ == '__main__':
     # a_term_model = ExpressionModel('ampA * (x-cen) * exp(-wid*(x-cen)**2)')
     # b_term_model = ExpressionModel('ampB * exp(-wid*(x-cen)**2)')
 
-    ab_term_model1 = ExpressionModel('ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)')
-    ab_term_model2 = ExpressionModel('ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)')
-    ab_term_model3 = ExpressionModel('ampA3 * (x-cen3) * exp(-wid3*(x-cen3)**2) + ampB3 * exp(-wid3*(x-cen3)**2)')
-    ab_term_model4 = ExpressionModel('ampA4 * (x-cen4) * exp(-wid4*(x-cen4)**2) + ampB2 * exp(-wid4*(x-cen4)**2)')
+    def ab_term_model1(x, ampA1, ampB1, cen1, wid1):
+        y = ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)
+        return y
 
-    pars = ab_term_model1.make_params()
+    def ab_term_model2(x, ampA2, ampB2, cen2, wid2):
+        y = ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)
+        return y
+
+    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2)
+
+    
+
+    # ab_term_model1 = ExpressionModel('ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)')
+    # ab_term_model2 = ExpressionModel('ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)')
+    # ab_term_model3 = ExpressionModel('ampA3 * (x-cen3) * exp(-wid3*(x-cen3)**2) + ampB3 * exp(-wid3*(x-cen3)**2)')
+    # ab_term_model4 = ExpressionModel('ampA4 * (x-cen4) * exp(-wid4*(x-cen4)**2) + ampB2 * exp(-wid4*(x-cen4)**2)')
+
+    ### Might have to 
+
+    # ab_term_model_total = ab_term_model1 + ab_term_model2
+    
+    pars = ab_term_model_total.make_params()
     pars['ampA1'].set(value=0.002, min=0, max=2)
     pars['ampB1'].set(value=0, vary=False)
-    pars['cen1'].set(value=1150,vary=False)
+    pars['cen1'].set(value=1150, vary=False)
     pars['wid1'].set(fwhm(500))
-
-    pars.update(ab_term_model2.make_params())
     pars['ampA2'].set(value=0.002, min=0, max=2)
     pars['ampB2'].set(value=0, vary=False)
-    pars['cen2'].set(value=1100,vary=False)
+    pars['cen2'].set(value=1100, vary=False)
     pars['wid2'].set(fwhm(500))
 
-    ab_term_model_total = ab_term_model1+ab_term_model2
+    print(pars)
 
-    init_fit = ab_term_model_total.eval(pars, x=x)
+    # init_fit = ab_term_model_total.eval(pars, x=x)
     fitting_result = ab_term_model_total.fit(y, pars, x=x)
 
     print(fitting_result.fit_report(min_correl=0.5))
 
     comps = fitting_result.eval_components(x=x)
-    print(comps)
-
+    
     plt.clf()
     fig = plt.figure(figsize=(6,4))
     gs = gridspec.GridSpec(2,1, height_ratios=[1,1])
@@ -264,8 +278,8 @@ if __name__ == '__main__':
     ax1.plot(x, y, 'k-', label='raw data')
     # ax1.plot(x, fitting_result.init_fit, 'k--', label='initial fit')
     ax1.plot(x, fitting_result.best_fit, 'r-', label='best fit')
-    ax1.plot(x, comps[0],'g--',label='ab_1')
-    ax1.plot(x, comps[1],'m--',label='ab_2')
+    ax1.plot(x, list(comps.values())[0],'g--',label='ab_1')
+    ax1.plot(x, list(comps.values())[1],'m--',label='ab_2')
     ax1.legend(loc='best')
     ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')
     ax1.set_ylabel(r'MCD, $\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)',labelpad=6, size=9)
