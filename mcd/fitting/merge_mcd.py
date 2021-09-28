@@ -10,7 +10,6 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.signal import savgol_filter
 from lmfit.models import GaussianModel, VoigtModel
 
-
 def getWavelength(eV):
     return 1240/eV
 
@@ -137,7 +136,7 @@ def merge_spectra(vis_data,nir_data,wavelength_match):
             vis_field_data[field] = vis_field_data.loc[vis_field_data[('wavelength','')] <= wavelength_match, field] # feel free to comment out this line or next to add "error" gradient to merged regions.
             nir_field_data[field] = nir_field_data.loc[nir_field_data[('wavelength','')] > wavelength_match, field]
             nir_field_data[field] = nir_field_data[field] * nir_to_vis_conversion
-    merged_spectra = vis_field_data.merge(nir_field_data,how='outer')
+    merged_spectra = vis_field_data.merge(nir_field_data,how='outer').dropna()
 
     merged_melt = merged_spectra.melt(id_vars=['wavelength','energy'],value_name='deltaA')
     merged_melt = merged_melt.loc[:,merged_melt.columns.notnull()]
@@ -193,10 +192,17 @@ if __name__ == '__main__':
     x_ev = absorption_spectra_data['energy']
     x_set = [x, x_ev]
 
-    fit = savgol_filter(y, window_length=71, polyorder=3, deriv=0)
-    dy  = savgol_filter(y, window_length=71, polyorder=3, deriv=1)
-    ddy = savgol_filter(y, window_length=71, polyorder=3, deriv=2)
-    ddyy= savgol_filter(y, window_length=15, polyorder=2, deriv=2)
+    fit = savgol_filter(y, window_length=71, polyorder=9, deriv=0)
+    dy  = savgol_filter(y, window_length=71, polyorder=9, deriv=1)
+    dy2 = savgol_filter(y, window_length=11, polyorder=9, deriv=1)
+    ddy = savgol_filter(y, window_length=71, polyorder=9, deriv=2)
+    ddyy= savgol_filter(y, window_length=51, polyorder=9, deriv=2)
+
+    deriv_check = [x.values, x_ev.values, fit, dy, ddy]
+    # print(deriv_check)
+    # sys.exit()
+    deriv_df = pd.DataFrame(data = deriv_check).transpose()
+    deriv_df.to_csv('derivatives.csv', header=['wavelength','energy','fit','1st der','2nd der'], index=False)
 
     for num, x in enumerate(x_set):
         plt.clf()
@@ -204,33 +210,44 @@ if __name__ == '__main__':
         gs = gridspec.GridSpec(1,1)
         ax1 = fig.add_subplot(gs[0])
         ax2 = ax1.twinx()
+        ax3 = ax1.twinx()
+        # ax3.spines.right.set_position(("axes", 1.3)) #offset right y-axis
+        # ax2.ticklabel_format(axis='y',scilimits=(-1,1),useMathText=True)
+        # ax3.ticklabel_format(axis='y',scilimits=(-1,1),useMathText=True)
+
         line1 = ax1.plot(x, y, 'ko', ms=1, label='raw data')
         # x_range = np.linspace(x[0],x[-1],1000)
         line2 = ax1.plot(x, fit, 'k-', lw=1, label='data fit')
         # plt.plot(x,first_der_fit, 'bo',label='1st der')
         # plt.plot(x,second_der_fit, '--', label='2nd der')
         # plt.plot(x,dy,label='1st der')
-        line3 = ax2.plot(x, ddy, 'r-', lw=1, label='2nd der')
-        line4 = ax2.plot(x, ddyy, 'r--', lw=0.5, label='raw 2nd der')
-        all_lines = line1+line2+line3+line4
+        line3 = ax3.plot(x, dy, 'b-', lw=1, label='1st der')
+        # line4 = ax3.plot(x, dy2, 'b--', lw=1, label='raw 1st der')
+        line5 = ax2.plot(x, ddy, 'r-', lw=1, label='2nd der')
+        # line6 = ax2.plot(x, ddyy, 'r--', lw=0.5, label='raw 2nd der')
+        all_lines = line1+line2+line3+line5
         line_labels = [l.get_label() for l in all_lines]
-        ax1.legend(all_lines, line_labels, loc='best')
+        ax1.legend(all_lines, line_labels, loc=0)
         ax1.set_ylabel(r'Absorbance, A (a.u.)')
-        ax2.tick_params(axis='y',colors='red')
-        ax2.set_ylabel(r'2$^{nd}$ Derivative, $\frac{\partial ^{2}A}{\partial x^{2}}$', color='red')
+        ax2.tick_params(axis='y',colors='red',right=False,labelright=False)
+        ax2.set_ylim(-0.001, 0.001)
+        ax2.plot([0,2000],[0,0],'r--',lw=0.8)
+        # ax2.set_ylabel(r'2$^{nd}$ Derivative, $\frac{\partial ^{2}A}{\partial x^{2}}$', color='red')
+        ax3.tick_params(axis='y',colors='blue',right=False,labelright=False)
+        ax3.set_ylim(-0.02, 0.02)
+        ax3.plot([0,2000],[0,0],'b--',lw=0.8)
+        # ax3.set_ylabel(r'1$^{st}$ Derivative, $\frac{\partial A}{\partial x}$', color='blue')
         if num == 0:
             ax1.set_xlim(400,1700)
+            ax1.set_xlabel(r'Wavelength, $\lambda$ (nm)')
         if num == 1:
             ax1.set_xlim(0.73,3.08)
+            ax1.set_xlabel(r'Energy, $h\nu$ (eV)')
         gs.tight_layout(fig)
         plt.show()
         plt.savefig('2nd_deriv_abs_' + str(num) + '.png',dpi=300)
 
     '''Find Peaks onto Abs'''
-
-    # a_term_model = ExpressionModel('ampA * (x-cen) * exp(-wid*(x-cen)**2)')
-    # b_term_model = ExpressionModel('ampB * exp(-wid*(x-cen)**2)')
-
     gauss1 = GaussianModel(prefix='g1_')
     pars = gauss1.make_params()
 

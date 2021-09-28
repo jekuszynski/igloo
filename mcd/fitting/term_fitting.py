@@ -1,18 +1,18 @@
 from math import exp
 import sys
 import os
-from numpy.ma import compress_cols
+from lmfit.model import save_modelresult
 import pandas as pd
 import numpy as np
 from matplotlib import gridspec, pyplot as plt
 import matplotlib.colors as colors
-from pandas.core.frame import DataFrame
 import seaborn as sns
 from scipy import optimize
 from scipy.stats import linregress
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
-from lmfit.models import ExpressionModel
+from lmfit.models import GaussianModel, ExponentialModel
 from lmfit import Model
+import random
 
 def getWavelength(eV):
     return 1240/eV
@@ -21,8 +21,17 @@ def getEnergy(nm):
     return 1240/nm
 
 def fwhm(fwhm):
-    b = 4 * np.log(2) / fwhm**2
+    b = 4 * np.log(2) / (fwhm**2)
     return b
+
+def getFWHM(b):
+    return np.sqrt(4 * np.log(2) / b)
+
+def getSigma(fwhm):
+    return fwhm / np.sqrt(8 * np.log(2))
+
+def getWavenumber(eV):
+    return eV * 8065.73
 
 def twin_axis(ax,xlabel=r'Wavelength (nm)'):
     new_ax = ax.twiny()
@@ -40,7 +49,7 @@ def parse_csv(path):
     df = pd.read_csv(path,usecols=use_deltaA)
     return df
 
-def plot_spectra(df,title):
+def plot_spectra(df,title,melt=True):
     plt.clf()
     fig,ax=plt.subplots(figsize=(8,4))
 
@@ -51,8 +60,11 @@ def plot_spectra(df,title):
     fig.colorbar(sm,ticks=range(-10,11,2),label='H (T)') #make color bar based on H (T) for plot
 
     ##convert dataframe into lengthwise plotting for using sns
-    df_melt = df.melt(id_vars=['wavelength','energy'],var_name='field',value_name='deltaA')
-    df_melt['field'] = df_melt['field'].str.split('_').str[0].astype(int)
+    if melt == True:
+        df_melt = df.melt(id_vars=['wavelength','energy'],var_name='field',value_name='deltaA')
+        df_melt['field'] = df_melt['field'].str.split('_').str[0].astype(int)
+    elif melt == False:
+        df_melt = df
     # print(df_melt)
     ##plot all lines
     sns.lineplot(data=df_melt,x='energy',y='deltaA', linewidth=0.6,
@@ -65,7 +77,7 @@ def plot_spectra(df,title):
 
     ax.set_ylabel(r'$\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)')
     # ax.set_ylabel('MCD (mdeg)')
-    ax.set_xlim(1.6,0.8)
+    ax.set_xlim(3.2,0.8)
     ax.xaxis.set_major_locator(MultipleLocator(0.2))
     ax.xaxis.set_minor_locator(AutoMinorLocator()) # auto set minor ticks
     # ax.set_ylim(-1.5,1.5)
@@ -97,7 +109,12 @@ def plot_spectra(df,title):
     plt.savefig('mcd_fit' + title,dpi=300,transparent=False,bbox_inches='tight')
     plt.show()
 
-    new_df = df_melt.pivot(index=['wavelength','energy'],columns='field')
+    # print(df_melt)
+    if melt == True:
+        new_df = df_melt.pivot(index=['wavelength','energy'],columns='field')
+    elif melt == False:
+        new_df = df_melt.pivot(index=['wavelength','energy'],columns='field').reset_index()
+
     return new_df
 
 def _mcdtermsAB(x, cen, ampA, ampB, wid):
@@ -211,23 +228,29 @@ def plot_peak_params(df,fname,num=1):
 
 if __name__ == '__main__':
     
+    figure_name = '3-1_CFS_4peak_fit_zoomed'
+    fit_params_name = '3-1_CFS_4peak_params'
+
     working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
     os.chdir(working_path)
 
-    data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
-    # data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/3-1CFS_merged_mcd_spectra.csv'
+    # data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
+    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/3-1CFS_merged_mcd_spectra.csv'
+    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/3-1_CFS_merged_abs_FOR_PUB.csv'
 
     '''Parse Data'''
-    data = parse_csv(data_path)
-    # data = pd.read_csv(data_path)
+    # data = parse_csv(data_path)
+    mcd_data = pd.read_csv(mcd_data_path)
+    abs_data = pd.read_csv(abs_data_path,na_values='--').dropna(how='all')
 
     '''Plot Data'''
-    new_data = plot_spectra(data,'test_plot') 
-    new_data.reset_index(level=(0,1),inplace=True) #change out of MultiIndex. Probably more powerful, but easier to work without for now.
-
-    x = new_data['wavelength']
+    new_data = plot_spectra(mcd_data,'test_plot',melt=False) 
+    # new_data.reset_index(level=(0,1),inplace=True) #change out of MultiIndex. Probably more powerful, but easier to work without for now. Use if melting prior.
+    
+    new_data = new_data.loc[new_data['wavelength'] <= 1600] #remove extraneous data for fitting
+    # print(new_data)
+    x = new_data['energy']
     y = new_data['deltaA',10]
-
 
     def ab_term_model1(x, ampA1, ampB1, cen1, wid1): #np.exp needed, because math.exp only expected single value insert, while np.exp can use array as is needed for lmfit.
         return (ampA1 * (x-cen1) * np.exp(-wid1*(x-cen1)**2)) + (ampB1 * np.exp(-wid1*(x-cen1)**2))
@@ -241,36 +264,107 @@ if __name__ == '__main__':
     def ab_term_model4(x, ampA4, ampB4, cen4, wid4):
         return (ampA4 * (x-cen4) * np.exp(-wid4*(x-cen4)**2)) + (ampB4 * np.exp(-wid4*(x-cen4)**2))
 
-    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2)
-
     # ab_term_model1 = ExpressionModel('ampA1 * (x-cen1) * exp(-wid1*(x-cen1)**2) + ampB1 * exp(-wid1*(x-cen1)**2)')
     # ab_term_model2 = ExpressionModel('ampA2 * (x-cen2) * exp(-wid2*(x-cen2)**2) + ampB2 * exp(-wid2*(x-cen2)**2)')
     # ab_term_model3 = ExpressionModel('ampA3 * (x-cen3) * exp(-wid3*(x-cen3)**2) + ampB3 * exp(-wid3*(x-cen3)**2)')
 
-
-    ### Might have to 
+    # found from merge_mcd.py derivative.csv. 0 is nm, 1 is ev
+    peak1 = [1060, 1240/1060]
+    peak2 = [] # allow to float to find a/b term. Leave open to quantify what behavior is here. 
+    peak3 = [482, 1240/482]
+    peak4 = [350, 1240/350]
 
     # ab_term_model_total = ab_term_model1 + ab_term_model2
     
+    #Try to setup a Monte Carlo fitting scheme to find best fit for all MCD terms
+
+    # n=10
+    # for i in range (0,n):
+    #     ampA1 = random.uniform(-np.inf, -0.001)
+    #     ampB1 = random.uniform(-10,10)
+    #     if fitting_result.redchi.value()
+
+    #increasing peak number is an increase in ev, decrease in nm.
+    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3) + Model(ab_term_model4)
     pars = ab_term_model_total.make_params()
-    pars['ampA1'].set(value=0.002, min=0, max=2)
+    pars['ampA1'].set(value=-2, max=-0.001)
     pars['ampB1'].set(value=0, vary=False)
-    pars['cen1'].set(value=1150, vary=False)
-    pars['wid1'].set(fwhm(500))
-    pars['ampA2'].set(value=0.002, min=0, max=2)
-    pars['ampB2'].set(value=0, vary=False)
-    pars['cen2'].set(value=1100, vary=False)
-    pars['wid2'].set(fwhm(500))
+    pars['cen1'].set(value=peak1[1], vary=False)
+    pars['wid1'].set(fwhm(0.6), min=fwhm(1.5), max=fwhm(0.4))
+    pars['ampA2'].set(value=0, vary=False)
+    pars['ampB2'].set(value=-0.4, vary=True)
+    pars['cen2'].set(value=1.8, vary=True, min=1.3, max=2.0)
+    pars['wid2'].set(fwhm(0.75), min=fwhm(1.5), max=fwhm(0.2))
+    pars['ampA3'].set(value=-1, min=-5, max=1)
+    pars['ampB3'].set(value=-1, vary=True, min=-4, max=4)
+    pars['cen3'].set(value=peak3[1], vary=False)
+    pars['wid3'].set(fwhm(0.5), min=fwhm(0.8), max=fwhm(0.1))
+    pars['ampA4'].set(value=2)
+    pars['ampB4'].set(value=-4, vary=True, min=-8, max=4)
+    pars['cen4'].set(value=peak4[1], vary=True, min=2.8, max=5)
+    pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.5))
 
     print(pars)
 
     # init_fit = ab_term_model_total.eval(pars, x=x)
     fitting_result = ab_term_model_total.fit(y, pars, x=x)
-
+    save_modelresult(fitting_result, fit_params_name + '.sav')
     print(fitting_result.fit_report(min_correl=0.5))
 
-    comps = fitting_result.eval_components(x=x)
+    wid_list = []
+    cen_list = []
+    param_list = []
+
+    # print('-------------------------------')
+    # print('Parameter    Value       Stderr')
+    for name, param in fitting_result.params.items():
+        # print('{:7s} {:11.5f} {:11.5f}'.format(name, param.value, param.stderr))
+        if 'cen' in name:
+            cen_list.append(param.value)
+        elif 'wid' in name:
+            wid_list.append(getSigma(getFWHM(param.value)))
+
+    for wid, cen in zip(wid_list,cen_list):
+        param_list.append([cen,wid])
+
+    mcd_comps = fitting_result.eval_components(x=x)
+
+    abs_x = abs_data['energy']
+    abs_y = abs_data['normalized_absorbance']
+
+    gauss1 = GaussianModel(prefix='g1_')
+    gauss2 = GaussianModel(prefix='g2_')
+    gauss3 = GaussianModel(prefix='g3_')
+    gauss4 = GaussianModel(prefix='g4_')
+    exp = ExponentialModel(prefix='exp_')
+
+    abs_model = gauss1 + gauss2 + gauss3 + gauss4
+    pars = abs_model.make_params()
+
+    pars['g1_center'].set(value=param_list[0][0], vary=False)
+    pars['g1_sigma'].set(value=param_list[0][1], vary=False)
+    pars['g1_amplitude'].set(value=.409, min=0, vary=True)
+    pars['g2_center'].set(value=param_list[1][0], vary=False)
+    pars['g2_sigma'].set(value=param_list[1][1], vary=False)
+    pars['g2_amplitude'].set(value=.3668, min=0, vary=True)
+    pars['g3_center'].set(value=param_list[2][0], vary=False)
+    pars['g3_sigma'].set(value=param_list[2][1], vary=False)
+    pars['g3_amplitude'].set(value=.2, min=0)
+    pars['g4_center'].set(value=param_list[3][0], vary=False)
+    pars['g4_sigma'].set(value=param_list[3][1], vary=False)
+    pars['g4_amplitude'].set(value=.5, min=0)
+    # pars['exp_amplitude'].set(value=0.01)
+    # pars['exp_decay'].set(value=-5)
     
+    # init = mod.eval(pars, x=x)
+    abs_fit_output = abs_model.fit(abs_y, pars, x=abs_x)
+
+    print(abs_fit_output.fit_report())
+    # abs_fit_output.plot()
+
+    abs_comps = abs_fit_output.eval_components(x=abs_x)
+
+    '''Fit all data'''
     plt.clf()
     fig = plt.figure(figsize=(6,4))
     gs = gridspec.GridSpec(2,1, height_ratios=[1,1])
@@ -280,18 +374,32 @@ if __name__ == '__main__':
     ax1.plot([0,2000],[0,0],'k-',lw=0.8)
     ax1.plot(x, y, 'k-', label='raw data')
     # ax1.plot(x, fitting_result.init_fit, 'k--', label='initial fit')
+
+    colors = ["#ff3c38","#fff275","#e76f51","#6699cc"]
+
     ax1.plot(x, fitting_result.best_fit, 'r-', label='best fit')
-    ax1.plot(x, list(comps.values())[0],'g--',label='ab_1')
-    ax1.plot(x, list(comps.values())[1],'m--',label='ab_2')
-    ax1.legend(loc='best')
+    ax1.fill_between(x, list(mcd_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='lspr', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
+
+    ax2.plot(abs_x, abs_y, 'k-', label='raw data')
+    ax2.plot(abs_x, abs_fit_output.best_fit, 'r-', label='best fit')
+    ax2.fill_between(abs_x, list(abs_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='lspr', alpha=0.2)
+    ax2.fill_between(abs_x, list(abs_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
+    ax2.fill_between(abs_x, list(abs_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
+    ax2.fill_between(abs_x, list(abs_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
+    # ax2.plot(abs_x, list(abs_comps.values())[4], color='purple', lw=1.5, ls='--', label='Continuum')
+
+    ax1.legend(loc=0)
     ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')
     ax1.set_ylabel(r'MCD, $\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)',labelpad=6, size=9)
     ax2.set_ylabel(r'Absorbance, A (a.u.)',labelpad=14,size=9)
 
-    ax1.set_xlim(400, 1600)
+    ax1.set_xlim(3.09, 0.75)
     ax2.set_xlim(ax1.get_xlim())
-    ax2.set_ylim(0.1,1.2)
-    ax1.set_ylim(-1.4,1.4)
+    ax2.set_ylim(0,1.1)
+    ax1.set_ylim(-1.4,0.5)
 
     ax3 = twin_axis(ax1)
     ax4 = twin_axis(ax2)
@@ -301,8 +409,8 @@ if __name__ == '__main__':
     ax3.set_xlabel(r'Energy, $h\nu$ (eV)')
     ax4.set_xlabel('')
     
-    ax1.xaxis.set_major_locator(MultipleLocator(200))
-    ax2.xaxis.set_major_locator(MultipleLocator(200))
+    ax1.xaxis.set_major_locator(MultipleLocator(0.5))
+    ax2.xaxis.set_major_locator(MultipleLocator(0.5))
     # ax2.yaxis.set_major_locator(MultipleLocator(10))
 
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
@@ -331,7 +439,7 @@ if __name__ == '__main__':
     gs.tight_layout(fig)
     gs.update(hspace=0)
     plt.show()
-    plt.savefig('fitting.png', format='png',dpi=300)
+    plt.savefig(figure_name + '.png', format='png',dpi=300)
 
     sys.exit() 
 
