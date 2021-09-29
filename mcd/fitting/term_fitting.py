@@ -228,8 +228,8 @@ def plot_peak_params(df,fname,num=1):
 
 if __name__ == '__main__':
     
-    figure_name = '3-1_CFS_4peak_fit_zoomed'
-    fit_params_name = '3-1_CFS_4peak_params'
+    figure_name = '3-1_CFS_3peak_fit_zoomed'
+    fit_params_name = '3-1_CFS_3peak_params'
 
     working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
     os.chdir(working_path)
@@ -280,29 +280,58 @@ if __name__ == '__main__':
 
     # n=10
     # for i in range (0,n):
-    #     ampA1 = random.uniform(-np.inf, -0.001)
-    #     ampB1 = random.uniform(-10,10)
-    #     if fitting_result.redchi.value()
+        # valampA1 = random.uniform(-np.inf, -0.001)
+        # valampB1 = random.uniform(-10,10)
+        # valcen1 = random.uniform(-10,10)
+        # valwid1 = random.uniform(-10,10)
+        # valampA2 = random.uniform(-np.inf, -0.001)
+        # valampB2 = random.uniform(-10,10)
+        # valcen2 = random.uniform(-10,10)
+        # valwid2 = random.uniform(-10,10)
+        # valampA3 = random.uniform(-np.inf, -0.001)
+        # valampB3 = random.uniform(-10,10)
+        # valcen3 = random.uniform(-10,10)
+        # valwid3 = random.uniform(-10,10)
+        # valampA4 = random.uniform(-np.inf, -0.001)
+        # valampB4 = random.uniform(-10,10)
+        # valcen4 = random.uniform(-10,10)
+        # valwid4 = random.uniform(-10,10)
+        # fit = ab_term_model_total.fit(y, pars, x=x)
+
+    #     if fitting_result.redchi.value() < 
+
+            # wid_list = []
+            # cen_list = []
+            # param_list = []
+
+            # # print('-------------------------------')
+            # # print('Parameter    Value       Stderr')
+            # for name, param in fitting_result.params.items():
+            #     # print('{:7s} {:11.5f} {:11.5f}'.format(name, param.value, param.stderr))
+            #     if 'cen' in name:
+            #         cen_list.append(param.value)
+            #     elif 'wid' in name:
+            #         wid_list.append(getSigma(getFWHM(param.value)))
 
     #increasing peak number is an increase in ev, decrease in nm.
-    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3) + Model(ab_term_model4)
+    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
     pars = ab_term_model_total.make_params()
     pars['ampA1'].set(value=-2, max=-0.001)
     pars['ampB1'].set(value=0, vary=False)
     pars['cen1'].set(value=peak1[1], vary=False)
-    pars['wid1'].set(fwhm(0.6), min=fwhm(1.5), max=fwhm(0.4))
+    pars['wid1'].set(fwhm(0.6), min=fwhm(0.8), max=fwhm(0.2))
     pars['ampA2'].set(value=0, vary=False)
     pars['ampB2'].set(value=-0.4, vary=True)
     pars['cen2'].set(value=1.8, vary=True, min=1.3, max=2.0)
-    pars['wid2'].set(fwhm(0.75), min=fwhm(1.5), max=fwhm(0.2))
-    pars['ampA3'].set(value=-1, min=-5, max=1)
-    pars['ampB3'].set(value=-1, vary=True, min=-4, max=4)
+    pars['wid2'].set(fwhm(0.7), min=fwhm(0.8), max=fwhm(0.2))
+    pars['ampA3'].set(value=0)
+    pars['ampB3'].set(value=-2, vary=True)
     pars['cen3'].set(value=peak3[1], vary=False)
-    pars['wid3'].set(fwhm(0.5), min=fwhm(0.8), max=fwhm(0.1))
-    pars['ampA4'].set(value=2)
-    pars['ampB4'].set(value=-4, vary=True, min=-8, max=4)
-    pars['cen4'].set(value=peak4[1], vary=True, min=2.8, max=5)
-    pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.5))
+    pars['wid3'].set(fwhm(0.5), min=fwhm(1.5), max=fwhm(0.1))
+    # pars['ampA4'].set(value=2)
+    # pars['ampB4'].set(value=-4, vary=True, min=-8, max=4)
+    # pars['cen4'].set(value=peak4[1], vary=True, min=2.8, max=5)
+    # pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.5))
 
     print(pars)
 
@@ -336,7 +365,7 @@ if __name__ == '__main__':
     gauss2 = GaussianModel(prefix='g2_')
     gauss3 = GaussianModel(prefix='g3_')
     gauss4 = GaussianModel(prefix='g4_')
-    exp = ExponentialModel(prefix='exp_')
+    # exp = ExponentialModel(prefix='exp_')
 
     abs_model = gauss1 + gauss2 + gauss3 + gauss4
     pars = abs_model.make_params()
@@ -350,11 +379,11 @@ if __name__ == '__main__':
     pars['g3_center'].set(value=param_list[2][0], vary=False)
     pars['g3_sigma'].set(value=param_list[2][1], vary=False)
     pars['g3_amplitude'].set(value=.2, min=0)
-    pars['g4_center'].set(value=param_list[3][0], vary=False)
-    pars['g4_sigma'].set(value=param_list[3][1], vary=False)
+    pars['g4_center'].set(value=4, min=2.5, max=6, vary=True)
+    pars['g4_sigma'].set(value=fwhm(1), min=fwhm(3), max=fwhm(.2), vary=True)
     pars['g4_amplitude'].set(value=.5, min=0)
     # pars['exp_amplitude'].set(value=0.01)
-    # pars['exp_decay'].set(value=-5)
+    # pars['exp_decay'].set(value=-5, max=0)
     
     # init = mod.eval(pars, x=x)
     abs_fit_output = abs_model.fit(abs_y, pars, x=abs_x)
@@ -381,7 +410,7 @@ if __name__ == '__main__':
     ax1.fill_between(x, list(mcd_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='lspr', alpha=0.2)
     ax1.fill_between(x, list(mcd_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
     ax1.fill_between(x, list(mcd_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
-    ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
+    # ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
 
     ax2.plot(abs_x, abs_y, 'k-', label='raw data')
     ax2.plot(abs_x, abs_fit_output.best_fit, 'r-', label='best fit')
@@ -389,7 +418,7 @@ if __name__ == '__main__':
     ax2.fill_between(abs_x, list(abs_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
     ax2.fill_between(abs_x, list(abs_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
     ax2.fill_between(abs_x, list(abs_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
-    # ax2.plot(abs_x, list(abs_comps.values())[4], color='purple', lw=1.5, ls='--', label='Continuum')
+    # ax2.plot(abs_x, list(abs_comps.values())[3], color='purple', lw=1.5, ls='--', label='Continuum')
 
     ax1.legend(loc=0)
     ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')
@@ -411,6 +440,8 @@ if __name__ == '__main__':
     
     ax1.xaxis.set_major_locator(MultipleLocator(0.5))
     ax2.xaxis.set_major_locator(MultipleLocator(0.5))
+    ax3.xaxis.set_major_locator(MultipleLocator(500))
+    ax4.xaxis.set_major_locator(MultipleLocator(500))
     # ax2.yaxis.set_major_locator(MultipleLocator(10))
 
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
