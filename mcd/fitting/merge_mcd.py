@@ -169,9 +169,10 @@ if __name__ == '__main__':
     os.chdir(working_path)
 
     '''Setup Data Paths'''
-    vis_data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/vis_pub/3-1CFS_worked_up_diff_mcd.csv'
-    nir_data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
-    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/3-1_CFS_merged_abs_FOR_PUB.csv'
+    material = '7-1CFS_'
+    vis_data_path = '/home/jkusz/github/strouse-data/for_publication/7-1CFS/vis_pub/7-1CFS_worked_up_diff_mcd.csv'
+    nir_data_path = '/home/jkusz/github/strouse-data/for_publication/7-1CFS/adj_nir_pub/7-1CFS_worked_up_diff_mcd.csv'
+    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/7-1_CFS_merged_abs_FOR_PUB.csv'
 
     '''Parse Data'''
     vis_mcd_data = parse_csv(vis_data_path)
@@ -181,10 +182,10 @@ if __name__ == '__main__':
 
     '''Merge and Scale Data'''
     merged_mcd_spectra = merge_spectra(vis_mcd_data,nir_mcd_data,900)
-    merged_mcd_spectra.to_csv('3-1CFS_merged_mcd_spectra.csv')
+    merged_mcd_spectra.to_csv(material + '_merged_mcd_spectra.csv')
     
     '''Plot Abs with Merged MCD'''
-    plot_spectra(merged_mcd_spectra,absorption_spectra_data,'merged_spectra.png')
+    plot_spectra(merged_mcd_spectra,absorption_spectra_data, material + '_merged_spectra.png')
 
     '''Find 2nd Der of Abs'''
     x = absorption_spectra_data['wavelength']
@@ -202,7 +203,7 @@ if __name__ == '__main__':
     # print(deriv_check)
     # sys.exit()
     deriv_df = pd.DataFrame(data = deriv_check).transpose()
-    deriv_df.to_csv('derivatives.csv', header=['wavelength','energy','fit','1st der','2nd der'], index=False)
+    deriv_df.to_csv(material + '_derivatives.csv', header=['wavelength','energy','fit','1st der','2nd der'], index=False)
 
     for num, x in enumerate(x_set):
         plt.clf()
@@ -245,7 +246,7 @@ if __name__ == '__main__':
             ax1.set_xlabel(r'Energy, $h\nu$ (eV)')
         gs.tight_layout(fig)
         plt.show()
-        plt.savefig('2nd_deriv_abs_' + str(num) + '.png',dpi=300)
+        plt.savefig(material + '2nd_deriv_abs_' + str(num) + '.png',dpi=300)
 
     '''Find Peaks onto Abs'''
     gauss1 = GaussianModel(prefix='g1_')

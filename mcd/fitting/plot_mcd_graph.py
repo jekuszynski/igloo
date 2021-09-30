@@ -96,26 +96,52 @@ def calc_raw_avg_mcd(dic): #need to define this before finding the mcd differenc
 '''-------------------------------FUNCTIONAL CODE BELOW-------------------------------'''
 
 
+if __name__ == '__main__':
+    working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
+    os.chdir(working_path)
 
-plt.clf() #Clear all previous plots
+    plt.clf() #Clear all previous plots
 
-'''parse all data files'''
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 VIS/") #raw mcd data in dictionary
+    '''parse all data files'''
+    raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 03-30-21 VIS/") #raw mcd data in dictionary
 
-'''fit raw and avg mcd straight from datafile - no workup'''
-df_avgs = calc_raw_avg_mcd(raw_mcd_dic)
+    '''fit raw and avg mcd straight from datafile - no workup'''
+    df_avgs = calc_raw_avg_mcd(raw_mcd_dic)
 
-'''mcd difference (no blank)'''
-for name, df in df_avgs.items():
-    df_avgs[name]['avg-0T'] = (df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']) / 32982 * 1000
+    '''mcd difference (no blank)'''
+    for name, df in df_avgs.items():
+        df_avgs[name]['avg-0T'] = (df_avgs[name]['mdeg'] - df_avgs['0']['mdeg']) / 32982 * 1000
 
-# Uncomment below if need to merge separate data sets
-raw_mcd_dic2 = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/")
-df_avgs2 = calc_raw_avg_mcd(raw_mcd_dic2)
-for name, df in df_avgs2.items():
-    df_avgs2[name]['avg-0T'] = (df_avgs2[name]['mdeg'] - df_avgs2['0']['mdeg']) / 32982 * 1000
-df_avgs.update(df_avgs2)
+    # Uncomment below if need to merge separate data sets
+    raw_mcd_dic2 = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/7-1 CFS/VIS/MCD 04-06-21 VIS Neg/")
+    df_avgs2 = calc_raw_avg_mcd(raw_mcd_dic2)
+    for name, df in df_avgs2.items():
+        df_avgs2[name]['avg-0T'] = (df_avgs2[name]['mdeg'] - df_avgs2['0']['mdeg']) / 32982 * 1000
+    df_avgs.update(df_avgs2)
 
-plot_mcd(df_avgs,'avg',title='7-1 CFS VIS',ydata='avg-0T')
+    plot_mcd(df_avgs,'avg',title='7-1 CFS VIS',ydata='avg-0T')
 
-print("...\nDone!")
+    xldf = pd.DataFrame()
+    for field, d in df_avgs.items():
+        df = pd.DataFrame(d)
+        df.dropna(axis=1,how='all',inplace=True)
+        df.dropna(how='any',inplace=True)
+        df.drop(['chpx','chpy','field','pemx','pemy','energy'],axis=1,inplace=True)
+        df['avg-0T-deltaA']=df['avg-0T'] # / 32982 * 1000 #give back deltaA x10^-3
+        rename_list = {'deltaA':'{}_deltaA'.format(field),'mdeg':'{}_mdeg'.format(field),'avg-0T':'{}_avg-0T'.format(field),'avg-0T-deltaA':'{}_avg-0T-deltaA'.format(field)}
+        df.rename(columns=rename_list,inplace=True)
+        # print(df)
+        try:
+            xldf = xldf.merge(df, how='inner', on='wavelength')
+        except KeyError:
+            xldf = df
+
+    #Make this a function
+    xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
+    xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
+    xldf.set_index('wavelength',inplace=True)
+    xldf.to_csv('CFS'+'_worked_up_diff_mcd.csv')
+
+    print("...\nDone!")
+
+

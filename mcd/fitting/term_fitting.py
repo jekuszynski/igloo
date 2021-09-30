@@ -228,8 +228,8 @@ def plot_peak_params(df,fname,num=1):
 
 if __name__ == '__main__':
     
-    figure_name = '3-1_CFS_3peak_fit_zoomed'
-    fit_params_name = '3-1_CFS_3peak_params'
+    material = '5-1CFS'
+    peak_count = '3'
 
     working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
     os.chdir(working_path)
@@ -340,7 +340,7 @@ if __name__ == '__main__':
             
         parameter_testing_df = pd.DataFrame(param_list, columns = ['iteration','redchi','ampA','ampA_stderr','ampB','ampB_stderr','cen','cen_stderr','wid','wid_stderr'])
         print(parameter_testing_df)
-        parameter_testing_df.to_csv(working path + 'parameter_testing.csv')
+        parameter_testing_df.to_csv(working_path + 'parameter_testing.csv')
 
     monte_carlo(2)
     sys.exit()
@@ -370,7 +370,7 @@ if __name__ == '__main__':
 
     # init_fit = ab_term_model_total.eval(pars, x=x)
     fitting_result = ab_term_model_total.fit(y, pars, x=x)
-    save_modelresult(fitting_result, fit_params_name + '.sav')
+    save_modelresult(fitting_result, material + '_' + peak_count + 'peak_params' + '.sav')
     print(fitting_result.fit_report(min_correl=0.5))
 
     wid_list = []
@@ -503,7 +503,7 @@ if __name__ == '__main__':
     gs.tight_layout(fig)
     gs.update(hspace=0)
     plt.show()
-    plt.savefig(figure_name + '.png', format='png',dpi=300)
+    plt.savefig(material + '_CFS_' + peak_count + 'peak_fit_zoomed.png', format='png',dpi=300)
 
     sys.exit() 
 
