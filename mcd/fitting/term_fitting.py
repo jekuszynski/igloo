@@ -273,45 +273,78 @@ if __name__ == '__main__':
     peak2 = [] # allow to float to find a/b term. Leave open to quantify what behavior is here. 
     peak3 = [482, 1240/482]
     peak4 = [350, 1240/350]
-
-    # ab_term_model_total = ab_term_model1 + ab_term_model2
     
-    #Try to setup a Monte Carlo fitting scheme to find best fit for all MCD terms
+    def monte_carlo(n=10):
+        ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
+        pars = ab_term_model_total.make_params()
+        param_list = []
+        for i in range (0,n):
+            valampA1 = random.uniform(-10, -0.002)
+            # valampB1 = random.uniform(-20,20)
+            # valcen1 = random.uniform(-10,10)
+            valwid1 = random.uniform(fwhm(0.9),fwhm(0.2))
+            # valampA2 = random.uniform(-np.inf, -0.001)
+            valampB2 = random.uniform(-10,10)
+            valcen2 = random.uniform(1.2,1.9)
+            valwid2 = random.uniform(fwhm(1),fwhm(0.1))
+            valampA3 = random.uniform(-10,10)
+            valampB3 = random.uniform(-10,10)
+            # valcen3 = random.uniform(-10,10)
+            valwid3 = random.uniform(fwhm(2.4),fwhm(0.2))
+            # valampA4 = random.uniform(-np.inf, -0.001)
+            # valampB4 = random.uniform(-10,10)
+            # valcen4 = random.uniform(-10,10)
+            # valwid4 = random.uniform(-10,10)
 
-    # n=10
-    # for i in range (0,n):
-        # valampA1 = random.uniform(-np.inf, -0.001)
-        # valampB1 = random.uniform(-10,10)
-        # valcen1 = random.uniform(-10,10)
-        # valwid1 = random.uniform(-10,10)
-        # valampA2 = random.uniform(-np.inf, -0.001)
-        # valampB2 = random.uniform(-10,10)
-        # valcen2 = random.uniform(-10,10)
-        # valwid2 = random.uniform(-10,10)
-        # valampA3 = random.uniform(-np.inf, -0.001)
-        # valampB3 = random.uniform(-10,10)
-        # valcen3 = random.uniform(-10,10)
-        # valwid3 = random.uniform(-10,10)
-        # valampA4 = random.uniform(-np.inf, -0.001)
-        # valampB4 = random.uniform(-10,10)
-        # valcen4 = random.uniform(-10,10)
-        # valwid4 = random.uniform(-10,10)
-        # fit = ab_term_model_total.fit(y, pars, x=x)
+            pars['ampA1'].set(value=valampA1, max=-0.001)
+            pars['ampB1'].set(value=0, vary=False)
+            pars['cen1'].set(value=peak1[1], vary=False)
+            pars['wid1'].set(value=valwid1, min=fwhm(1), max=fwhm(0.1))
+            pars['ampA2'].set(value=0, vary=False)
+            pars['ampB2'].set(value=valampB2, vary=True)
+            pars['cen2'].set(value=valcen2, vary=True, min=1.3, max=2.0)
+            pars['wid2'].set(value=valwid2, min=fwhm(1), max=fwhm(0.1))
+            pars['ampA3'].set(value=valampA3)
+            pars['ampB3'].set(value=valampB3)
+            pars['cen3'].set(value=peak3[1], vary=False)
+            pars['wid3'].set(value=valwid3, min=fwhm(2.5), max=fwhm(0.1))
+            # pars['ampA4'].set(value=2)
+            # pars['ampB4'].set(value=-4, vary=True, min=-8, max=4)
+            # pars['cen4'].set(value=peak4[1], vary=True, min=2.8, max=5)
+            # pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.5))
+            
+            # print('Parameter    Value       Stderr')
+            fit = ab_term_model_total.fit(y, pars, x=x)
 
-    #     if fitting_result.redchi.value() < 
+            if fit.redchi < 0.05:
+                print('redchi < 0.05 found!: ' + str(fit.redchi))
+                peak_list = []
+                ampA_list = []
+                ampB_list = []
+                wid_list = []
+                cen_list = []
+                for name, param in fit.params.items():
+                    # print('{:7s} {:11.5f} {:11.5f}'.format(name, param.value, param.stderr))
+                    if 'ampA' in name:
+                        ampA_list.append([param.value, param.stderr])
+                    elif 'ampB' in name:
+                        ampB_list.append([param.value, param.stderr])
+                    elif 'cen' in name:
+                        cen_list.append([param.value, param.stderr])
+                    elif 'wid' in name:
+                        wid_list.append([param.value, param.stderr])
+                for ampA, ampB, wid, cen in zip(ampA_list, ampB_list, wid_list, cen_list):
+                    param_list.append([i,fit.redchi,ampA[0],ampA[1],ampB[0],ampB[1],cen[0],cen[1],wid[0],wid[1]])
+            else:
+                print('reduced chi not < 1: ' + str(fit.redchi))
+            
+        parameter_testing_df = pd.DataFrame(param_list, columns = ['iteration','redchi','ampA','ampA_stderr','ampB','ampB_stderr','cen','cen_stderr','wid','wid_stderr'])
+        print(parameter_testing_df)
+        parameter_testing_df.to_csv(working path + 'parameter_testing.csv')
 
-            # wid_list = []
-            # cen_list = []
-            # param_list = []
+    monte_carlo(2)
+    sys.exit()
 
-            # # print('-------------------------------')
-            # # print('Parameter    Value       Stderr')
-            # for name, param in fitting_result.params.items():
-            #     # print('{:7s} {:11.5f} {:11.5f}'.format(name, param.value, param.stderr))
-            #     if 'cen' in name:
-            #         cen_list.append(param.value)
-            #     elif 'wid' in name:
-            #         wid_list.append(getSigma(getFWHM(param.value)))
 
     #increasing peak number is an increase in ev, decrease in nm.
     ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
