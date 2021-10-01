@@ -235,8 +235,8 @@ if __name__ == '__main__':
     os.chdir(working_path)
 
     # data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
-    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/3-1CFS_merged_mcd_spectra.csv'
-    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/3-1_CFS_merged_abs_FOR_PUB.csv'
+    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/5-1CFS__merged_mcd_spectra.csv'
+    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/5-1_CFS_merged_abs_FOR_PUB.csv'
 
     '''Parse Data'''
     # data = parse_csv(data_path)
@@ -246,7 +246,7 @@ if __name__ == '__main__':
     '''Plot Data'''
     new_data = plot_spectra(mcd_data,'test_plot',melt=False) 
     # new_data.reset_index(level=(0,1),inplace=True) #change out of MultiIndex. Probably more powerful, but easier to work without for now. Use if melting prior.
-    
+
     new_data = new_data.loc[new_data['wavelength'] <= 1600] #remove extraneous data for fitting
     # print(new_data)
     x = new_data['energy']
@@ -257,7 +257,7 @@ if __name__ == '__main__':
 
     def ab_term_model2(x, ampA2, ampB2, cen2, wid2):
         return (ampA2 * (x-cen2) * np.exp(-wid2*(x-cen2)**2)) + (ampB2 * np.exp(-wid2*(x-cen2)**2))
-    
+
     def ab_term_model3(x, ampA3, ampB3, cen3, wid3):
         return (ampA3 * (x-cen3) * np.exp(-wid3*(x-cen3)**2)) + (ampB3 * np.exp(-wid3*(x-cen3)**2))
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     peak2 = [] # allow to float to find a/b term. Leave open to quantify what behavior is here. 
     peak3 = [482, 1240/482]
     peak4 = [350, 1240/350]
-    
+
     def monte_carlo(n=10):
         ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
         pars = ab_term_model_total.make_params()
@@ -316,8 +316,8 @@ if __name__ == '__main__':
             # print('Parameter    Value       Stderr')
             fit = ab_term_model_total.fit(y, pars, x=x)
 
-            if fit.redchi < 0.05:
-                print('redchi < 0.05 found!: ' + str(fit.redchi))
+            if fit.redchi < 0.1:
+                print('redchi < 0.1 found!: ' + str(fit.redchi))
                 peak_list = []
                 ampA_list = []
                 ampB_list = []
@@ -336,13 +336,27 @@ if __name__ == '__main__':
                 for ampA, ampB, wid, cen in zip(ampA_list, ampB_list, wid_list, cen_list):
                     param_list.append([i,fit.redchi,ampA[0],ampA[1],ampB[0],ampB[1],cen[0],cen[1],wid[0],wid[1]])
             else:
-                print('reduced chi not < 1: ' + str(fit.redchi))
+                print('reduced chi not < 0.1: ' + str(fit.redchi))
             
         parameter_testing_df = pd.DataFrame(param_list, columns = ['iteration','redchi','ampA','ampA_stderr','ampB','ampB_stderr','cen','cen_stderr','wid','wid_stderr'])
         print(parameter_testing_df)
-        parameter_testing_df.to_csv(working_path + 'parameter_testing.csv')
+        parameter_testing_df.to_csv(working_path + material + '_parameter_testing.csv')
 
-    monte_carlo(2)
+    monte_carlo(1000)
+
+    from twilio.rest import Client
+
+    account_sid = 'ACc9299004f82443985e4e1e03408f93c2'
+    auth_token = '492e10609e26af98812dbd8a4c997e74'
+    client = Client(account_sid, auth_token)
+
+    message = client.messages \
+                    .create(
+                        body="Monte Carlo done! Have a great day (:",
+                        from_='+12183221858',
+                        to='+18322158941'
+                    )
+    print(message.sid)
     sys.exit()
 
 
