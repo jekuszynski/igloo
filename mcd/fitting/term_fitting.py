@@ -13,6 +13,7 @@ from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 from lmfit.models import GaussianModel, ExponentialModel
 from lmfit import Model
 import random
+from twilio.rest import Client
 
 def getWavelength(eV):
     return 1240/eV
@@ -228,15 +229,15 @@ def plot_peak_params(df,fname,num=1):
 
 if __name__ == '__main__':
     
-    material = '5-1CFS'
+    material = '3-1CFS'
     peak_count = '3'
 
     working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
     os.chdir(working_path)
 
     # data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
-    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/5-1CFS__merged_mcd_spectra.csv'
-    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/5-1_CFS_merged_abs_FOR_PUB.csv'
+    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/3-1CFS_merged_mcd_spectra.csv'
+    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/3-1_CFS_merged_abs_FOR_PUB.csv'
 
     '''Parse Data'''
     # data = parse_csv(data_path)
@@ -269,10 +270,21 @@ if __name__ == '__main__':
     # ab_term_model3 = ExpressionModel('ampA3 * (x-cen3) * exp(-wid3*(x-cen3)**2) + ampB3 * exp(-wid3*(x-cen3)**2)')
 
     # found from merge_mcd.py derivative.csv. 0 is nm, 1 is ev
-    peak1 = [1060, 1240/1060]
-    peak2 = [] # allow to float to find a/b term. Leave open to quantify what behavior is here. 
-    peak3 = [482, 1240/482]
-    peak4 = [350, 1240/350]
+    if material == '3-1CFS':
+        peak1 = [1060, 1240/1060]
+        peak2 = [] # allow to float to find a/b term. Leave open to quantify what behavior is here. 
+        peak3 = [482, 1240/482]
+        peak4 = [350, 1240/350] # "UV continuum" peak. may not end up using
+    elif material == '5-1CFS':
+        peak1 = [1100, 1240/1100]
+        peak2 = [700, 1240/700]
+        peak3 = [500, 1240/500]
+        peak4 = [350, 1240/350]
+    elif material == '7-1CFS':
+        peak1 = [1052, 1240/1052]
+        peak2 = []
+        peak3 = [490, 1240/490]
+        peak4 = [350, 1240/350]
 
     def monte_carlo(n=10):
         ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
@@ -282,11 +294,11 @@ if __name__ == '__main__':
             valampA1 = random.uniform(-10, -0.002)
             # valampB1 = random.uniform(-20,20)
             # valcen1 = random.uniform(-10,10)
-            valwid1 = random.uniform(fwhm(0.9),fwhm(0.2))
+            valwid1 = random.uniform(fwhm(1.4),fwhm(0.2))
             # valampA2 = random.uniform(-np.inf, -0.001)
             valampB2 = random.uniform(-10,10)
             valcen2 = random.uniform(1.2,1.9)
-            valwid2 = random.uniform(fwhm(1),fwhm(0.1))
+            valwid2 = random.uniform(fwhm(1.4),fwhm(0.2))
             valampA3 = random.uniform(-10,10)
             valampB3 = random.uniform(-10,10)
             # valcen3 = random.uniform(-10,10)
@@ -299,11 +311,11 @@ if __name__ == '__main__':
             pars['ampA1'].set(value=valampA1, max=-0.001)
             pars['ampB1'].set(value=0, vary=False)
             pars['cen1'].set(value=peak1[1], vary=False)
-            pars['wid1'].set(value=valwid1, min=fwhm(1), max=fwhm(0.1))
+            pars['wid1'].set(value=valwid1, min=fwhm(1.5), max=fwhm(0.1))
             pars['ampA2'].set(value=0, vary=False)
             pars['ampB2'].set(value=valampB2, vary=True)
-            pars['cen2'].set(value=valcen2, vary=True, min=1.3, max=2.0)
-            pars['wid2'].set(value=valwid2, min=fwhm(1), max=fwhm(0.1))
+            pars['cen2'].set(value=valcen2, vary=True, min=1, max=2)
+            pars['wid2'].set(value=valwid2, min=fwhm(1.5), max=fwhm(0.1))
             pars['ampA3'].set(value=valampA3)
             pars['ampB3'].set(value=valampB3)
             pars['cen3'].set(value=peak3[1], vary=False)
@@ -317,7 +329,7 @@ if __name__ == '__main__':
             fit = ab_term_model_total.fit(y, pars, x=x)
 
             if fit.redchi < 0.1:
-                print('redchi < 0.1 found!: ' + str(fit.redchi))
+                print('Iteration#: ' + str(i) + ', redchi < 0.1 found!: ' + str(fit.redchi))
                 peak_list = []
                 ampA_list = []
                 ampB_list = []
@@ -336,29 +348,26 @@ if __name__ == '__main__':
                 for ampA, ampB, wid, cen in zip(ampA_list, ampB_list, wid_list, cen_list):
                     param_list.append([i,fit.redchi,ampA[0],ampA[1],ampB[0],ampB[1],cen[0],cen[1],wid[0],wid[1]])
             else:
-                print('reduced chi not < 0.1: ' + str(fit.redchi))
+                print('Iteration#: ' + str(i) + ', reduced chi not < 0.1: ' + str(fit.redchi))
             
         parameter_testing_df = pd.DataFrame(param_list, columns = ['iteration','redchi','ampA','ampA_stderr','ampB','ampB_stderr','cen','cen_stderr','wid','wid_stderr'])
         print(parameter_testing_df)
         parameter_testing_df.to_csv(working_path + material + '_parameter_testing.csv')
 
-    monte_carlo(1000)
+    monte_carlo(2)
 
-    from twilio.rest import Client
+    # account_sid = 'ACc9299004f82443985e4e1e03408f93c2'
+    # auth_token = '492e10609e26af98812dbd8a4c997e74'
+    # client = Client(account_sid, auth_token)
 
-    account_sid = 'ACc9299004f82443985e4e1e03408f93c2'
-    auth_token = '492e10609e26af98812dbd8a4c997e74'
-    client = Client(account_sid, auth_token)
-
-    message = client.messages \
-                    .create(
-                        body="Monte Carlo done! Have a great day (:",
-                        from_='+12183221858',
-                        to='+18322158941'
-                    )
-    print(message.sid)
+    # message = client.messages \
+    #                 .create(
+    #                     body="Monte Carlo done! Have a great day (:",
+    #                     from_='+12183221858',
+    #                     to='+18322158941'
+    #                 )
+    # print(message.sid)
     sys.exit()
-
 
     #increasing peak number is an increase in ev, decrease in nm.
     ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)

@@ -169,10 +169,10 @@ if __name__ == '__main__':
     os.chdir(working_path)
 
     '''Setup Data Paths'''
-    material = '7-1CFS_'
-    vis_data_path = '/home/jkusz/github/strouse-data/for_publication/7-1CFS/vis_pub/7-1CFS_worked_up_diff_mcd.csv'
-    nir_data_path = '/home/jkusz/github/strouse-data/for_publication/7-1CFS/adj_nir_pub/7-1CFS_worked_up_diff_mcd.csv'
-    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/7-1_CFS_merged_abs_FOR_PUB.csv'
+    material = '5-1CFS'
+    vis_data_path = '/home/jkusz/github/strouse-data/for_publication/5-1CFS/for_publication/vis_pub/5-1CFS_worked_up_diff_mcd.csv'
+    nir_data_path = '/home/jkusz/github/strouse-data/for_publication/5-1CFS/for_publication/adj_nir_pub/5-1CFS_worked_up_diff_mcd.csv'
+    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/5-1_CFS_merged_abs_FOR_PUB.csv'
 
     '''Parse Data'''
     vis_mcd_data = parse_csv(vis_data_path)
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     print(absorption_spectra_data)
 
     '''Merge and Scale Data'''
-    merged_mcd_spectra = merge_spectra(vis_mcd_data,nir_mcd_data,900)
+    merged_mcd_spectra = merge_spectra(vis_mcd_data,nir_mcd_data,1020)
     merged_mcd_spectra.to_csv(material + '_merged_mcd_spectra.csv')
     
     '''Plot Abs with Merged MCD'''
