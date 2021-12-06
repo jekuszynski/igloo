@@ -6,7 +6,6 @@ import numpy.polynomial.polynomial as poly
 from matplotlib import pyplot as plt
 from scipy import signal,optimize,integrate,constants as const
 import matplotlib.lines as lines
-
 import sys
 
 def parseMCD(path,data_type,verbose=False):
@@ -103,66 +102,108 @@ def zeroSubtract(worked_up_data):
 
 #     return fit_diff
 
-def func(x,ev,y): #define simulated mcd function from absorbance spectrum
-    coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
-    coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
-    LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
-    RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
+# def func(x,ev,y): #define simulated mcd function from absorbance spectrum
+#     coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
+#     coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
+#     LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
+#     RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
 
-    # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
-    return LCP-RCP-y #switch to this if doing y adjustment
+#     # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+#     return LCP-RCP-y #switch to this if doing y adjustment
+
+def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and RCP from base abs
+    coeff_L=poly.polyfit([x+ev for x in x],y,9) #LCP poly fit coeffs
+    coeff_R=poly.polyfit([x-ev for x in x],y,9) #RCP poly fit coeffs
+    fit_L=poly.polyval(x,coeff_L) #LCP line fit
+    fit_R=poly.polyval(x,coeff_R) #RCP line fit
+
+    fit_diff=(fit_L-fit_R)/(np.max(x)) #calculate LCP-RCP normalized to absorbance max. Will incorporate based on field later. --Was originally multiplied by 1000 to match publication units.--
+    # x = x.values.tolist()fit_R
+    plt.figure(figsize=(6,6),dpi=80)
+
+    plt.subplot(2,1,1)
+    plt.ylabel('Absorbance (a.u.)')
+    plt.xlim(3.2,.55)
+    plt.scatter(x,y,s=1.3,c='Black')
+    plt.plot(x,fit_L,c='Blue')
+    plt.plot(x,fit_R,c='Red')
+    plt.legend(('LCP','RCP','Raw'))
+
+    plt.subplot(2,1,2)
+    plt.ylabel('Absorbance (a.u.)')
+    plt.xlabel('Energy (eV)')
+    plt.xlim(3.0,.55)
+    plt.plot(x,fit_diff,c='Purple')
+    plt.plot([10,0],np.zeros(2),c='black',ls='--',lw=0.6) #draw baseline at 0T
+    plt.legend(('Simulated MCD'))
+    plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
+    plt.show()
+
+    return fit_diff
 
 def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correction_factor=1):
     ev_list=[]
     std_dev_fit_list=[]
     m_list=[]
     B_list=[]
-    for field in mcd_data.keys():
-        if field is not '0':
-            xdata=mcd_data[field].loc[mcd_data[field]['energy'].between(0.75, 2.0, inclusive=True),'energy']
-            ydata=mcd_data[field].loc[mcd_data[field]['energy'].between(0.75, 2.0, inclusive=True),'avg-0T']   
-            
-            B_fit=int(field) #used for meV plotting later in zdf
-            B=np.absolute(B_fit) #magnetic field (T)
-            B_list.append(B_fit)
+    for col in mcd_data:
+        if 'deltaA_diff' in col:
+            field = col.split("_")[0]
+            if field is not '0':
+                xdata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive=True),'energy'].values
+                ydata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive=True),col].values
+                B_fit=int(field) #used for meV plotting later in zdf
+                B=np.absolute(B_fit) #magnetic field (T)
+                B_list.append(B_fit)
+                ydata=ydata/(np.max(absorption_data[field + '_absorption'])*correction_factor) #Uncomment to normalize by abs max
+                def func(x,ev,y): #define simulated mcd function from absorbance spectrum
+                    coeffL=poly.polyfit(absorption_data['energy']+ev,absorption_data[field + '_absorption'],9) #find polynomial coeffs from original absorption spectra
+                    coeffR=poly.polyfit(absorption_data['energy']-ev,absorption_data[field + '_absorption'],9) #find polynomial coeffs from original absorption spectra
+                    LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
+                    RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
 
-            ydata_normalized=ydata/(np.max(absorption_data['absorbance'])*correction_factor) / 32982 # divided by mdeg conversion to obtain deltaA/A_Max
-            # ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
-            # if B_fit < 0:
-            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.00001,method='trf',bounds=(0.000005,0.001)) #lsf optimization to spit out zeeman split mev, guess is 10^-3 eV
-            # if B_fit > 0:
-            #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.00001,method='trf',bounds=(-0.001,-0.000005)) #lsf optimization to spit out zeeman split mev.
+                    # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+                    return LCP-RCP-y #switch to this if doing y adjustment
 
-            if B_fit < 0:
-                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,-0.01],[0.00070,0.01])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
-            elif B_fit > 0:
-                popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.01],[-0.00001,0.01])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+                # ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
+                # if B_fit < 0:
+                #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=0.00001,method='trf',bounds=(0.000005,0.001)) #lsf optimization to spit out zeeman split mev, guess is 10^-3 eV
+                # if B_fit > 0:
+                #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.00001,method='trf',bounds=(-0.001,-0.000005)) #lsf optimization to spit out zeeman split mev.
 
-            # print(popt)
-            print(pcov) #list of residuals
-            ev=popt[0] #return absolute val of minimzed ev to variable
-            ev_list.append(ev*1000) #add ev to list as meV
-            std_dev_of_fit=(np.sqrt(np.diag(pcov))*1000)[0] #return std dev of fitting
-            std_dev_fit_list.append(std_dev_of_fit) #add std dev fit
-            # c=const.c #speed of light (m/s)
-            e=const.e #charge of electron (C)
-            m_e=const.m_e #mass of electron (kg)
-            w_c=ev/const.physical_constants['Planck constant in eV/Hz'][0] #cyclotron resonance frequency from Planck constant in eV/Hz
-            effective_mass=e*B/w_c/2/m_e/const.pi #effective mass (m*/m_e)
-            m_list.append(np.absolute(effective_mass)) #add m* to list
+                if B_fit < 0:
+                    popt,pcov = optimize.curve_fit(func,xdata,ydata,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,-0.01],[0.00070,0.01])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
+                elif B_fit > 0:
+                    popt,pcov = optimize.curve_fit(func,xdata,ydata,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.01],[-0.00001,0.01])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
 
-            fig,ax=plt.subplots(figsize=(2,4))
-            plt.title(str(field) + 'T Fit')
-            plt.ylabel(r'MCD ($\Delta$A/A$_{max}$)')
-            plt.xlabel('Energy (eV)')
-            plt.xlim(3.2,.55)
-            plt.plot(xdata,ydata_normalized,label='experiment_data',c='Black')
-            plt.plot(xdata,[func(x,*popt) for x in xdata],label='simulated_fit',c='Red')
-            baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
-            ax.add_line(baseline) #add baseline to plot
-            plt.legend(loc=0)
-            plt.text(3,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1}) #places text according to graph x,y coords
-            plt.savefig(str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
+                # print(popt)
+                # print(pcov) #list of residuals
+                ev=popt[0] #return minimzed ev to variable
+                ev_list.append(ev*1000) #add ev to list as meV
+                std_dev_of_fit=(np.sqrt(np.diag(pcov))*1000)[0] #return std dev of fitting
+                std_dev_fit_list.append(std_dev_of_fit) #add std dev fit
+                # c=const.c #speed of light (m/s)
+                e=const.e #charge of electron (C)
+                m_e=const.m_e #mass of electron (kg)
+                w_c=ev/const.physical_constants['Planck constant over 2 pi in eV s'][0] #cyclotron resonance frequency from Planck constant in eV/Hz
+                # print(e, m_e, w_c)
+                # print(const.physical_constants['Planck constant in eV/Hz'][0])
+                effective_mass=e*B/w_c/2/m_e/const.pi #effective mass (m*/m_e)
+                # print(effective_mass)
+                m_list.append(np.absolute(effective_mass)) #add m* to list
+
+                fig,ax=plt.subplots(figsize=(2,4))
+                plt.title(str(field) + 'T Fit')
+                plt.ylabel(r'MCD ($\Delta$A/A$_{max}$)')
+                plt.xlabel('Energy (eV)')
+                plt.xlim(4,.55)
+                plt.plot(xdata,ydata,label='experiment_data',c='Black')
+                plt.plot(xdata,[func(x,*popt) for x in xdata],label='simulated_fit',c='Red')
+                baseline = lines.Line2D(range(10),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
+                ax.add_line(baseline) #add baseline to plot
+                plt.legend(loc=0)
+                plt.text(3,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1}) #places text according to graph x,y coords
+                plt.savefig(str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
     average_ev = np.mean(ev_list)
     std_dev_ev = np.std(ev_list)
     average_m = np.mean(m_list)
@@ -170,14 +211,6 @@ def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correcti
     zdf = pd.DataFrame(list(zip(B_list,ev_list,std_dev_fit_list,m_list)),columns=['B','E_Z','E_Z_std_dev','m*'])
 
     return average_ev, std_dev_ev, average_m, std_dev_m, zdf
-
-def calcEffectiveMass(absorption_data,mcd_data,max_ev,min_ev,correction_factor=1):
-    for col in mcd_data:
-        if 'deltaA' in col:
-            field = re.split('_',col)[0]
-            if field is not '0':
-                sys.exit()
-    sys.exit()
 
 def convertToCSV(data, spectra):
     csv_df = pd.DataFrame()
