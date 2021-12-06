@@ -454,6 +454,7 @@ df_abs =      parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/ABS 05-17-2
 # df_abs = parse_abs("/mnt/c/Users/roflc/Desktop/MCD DATA/ABS 04-08-21 NIR/") #calculated abs data in dataframe
 # raw_mcd_dic_blank = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/MCD 04-01-21 Blank/")
 
+material = 'Au-PEG'
 
 '''fit raw and avg mcd straight from datafile - no workup'''
 plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
@@ -566,6 +567,6 @@ for field, d in df_avgs.items():
 xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
 xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
 xldf.set_index('wavelength',inplace=True)
-xldf.to_csv('CFS'+'_worked_up_diff_mcd.csv')
+xldf.to_csv(material+'_worked_up_diff_mcd.csv')
 
 print("...\nDone!")

@@ -229,15 +229,15 @@ def plot_peak_params(df,fname,num=1):
 
 if __name__ == '__main__':
     
-    material = '3-1CFS'
-    peak_count = '3'
+    material = '5-1CFS'
+    peak_count = '4'
 
-    working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
+    working_path = '/home/jkusz/github/igloo/mcd/fitting/temp_param_2/'
     os.chdir(working_path)
 
     # data_path = '/home/jkusz/github/strouse-data/for_publication/3-1CFS/adj_nir_pub/3-1CFS_worked_up_diff_mcd.csv'
-    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/3-1CFS_merged_mcd_spectra.csv'
-    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/3-1_CFS_merged_abs_FOR_PUB.csv'
+    mcd_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp/5-1CFS_merged_mcd_spectra.csv'
+    abs_data_path = '/home/jkusz/github/strouse-data/abs/mcd/5-1_CFS_merged_abs_FOR_PUB.csv'
 
     '''Parse Data'''
     # data = parse_csv(data_path)
@@ -275,7 +275,7 @@ if __name__ == '__main__':
         peak2 = [] # allow to float to find a/b term. Leave open to quantify what behavior is here. 
         peak3 = [482, 1240/482]
         peak4 = [350, 1240/350] # "UV continuum" peak. may not end up using
-    elif material == '5-1CFS':
+    elif material == '5-1CFS':  
         peak1 = [1100, 1240/1100]
         peak2 = [700, 1240/700]
         peak3 = [500, 1240/500]
@@ -287,7 +287,7 @@ if __name__ == '__main__':
         peak4 = [350, 1240/350]
 
     def monte_carlo(n=10):
-        ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
+        ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3) + Model(ab_term_model4)
         pars = ab_term_model_total.make_params()
         param_list = []
         for i in range (0,n):
@@ -302,11 +302,11 @@ if __name__ == '__main__':
             valampA3 = random.uniform(-10,10)
             valampB3 = random.uniform(-10,10)
             # valcen3 = random.uniform(-10,10)
-            valwid3 = random.uniform(fwhm(2.4),fwhm(0.2))
-            # valampA4 = random.uniform(-np.inf, -0.001)
-            # valampB4 = random.uniform(-10,10)
-            # valcen4 = random.uniform(-10,10)
-            # valwid4 = random.uniform(-10,10)
+            valwid3 = random.uniform(fwhm(1.9),fwhm(0.2))
+            valampA4 = random.uniform(-10,10)
+            valampB4 = random.uniform(-10,10)
+            valcen4 = random.uniform(1240/401,3.9)
+            valwid4 = random.uniform(fwhm(1.9),fwhm(0.2))
 
             pars['ampA1'].set(value=valampA1, max=-0.001)
             pars['ampB1'].set(value=0, vary=False)
@@ -319,11 +319,11 @@ if __name__ == '__main__':
             pars['ampA3'].set(value=valampA3)
             pars['ampB3'].set(value=valampB3)
             pars['cen3'].set(value=peak3[1], vary=False)
-            pars['wid3'].set(value=valwid3, min=fwhm(2.5), max=fwhm(0.1))
-            # pars['ampA4'].set(value=2)
-            # pars['ampB4'].set(value=-4, vary=True, min=-8, max=4)
-            # pars['cen4'].set(value=peak4[1], vary=True, min=2.8, max=5)
-            # pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.5))
+            pars['wid3'].set(value=valwid3, min=fwhm(2), max=fwhm(0.1))
+            pars['ampA4'].set(value=valampA4)
+            pars['ampB4'].set(value=valampB4, vary=True)
+            pars['cen4'].set(value=valcen4, vary=True, min=1240/400, max=4)
+            pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.1))
             
             # print('Parameter    Value       Stderr')
             fit = ab_term_model_total.fit(y, pars, x=x)
@@ -352,9 +352,9 @@ if __name__ == '__main__':
             
         parameter_testing_df = pd.DataFrame(param_list, columns = ['iteration','redchi','ampA','ampA_stderr','ampB','ampB_stderr','cen','cen_stderr','wid','wid_stderr'])
         print(parameter_testing_df)
-        parameter_testing_df.to_csv(working_path + material + '_parameter_testing.csv')
+        parameter_testing_df.to_csv(working_path + material + '_' + peak_count + '_peaks_parameter_testing.csv')
 
-    monte_carlo(2)
+    # monte_carlo(2)
 
     # account_sid = 'ACc9299004f82443985e4e1e03408f93c2'
     # auth_token = '492e10609e26af98812dbd8a4c997e74'
@@ -367,27 +367,27 @@ if __name__ == '__main__':
     #                     to='+18322158941'
     #                 )
     # print(message.sid)
-    sys.exit()
+    # sys.exit()
 
     #increasing peak number is an increase in ev, decrease in nm.
-    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3)
+    ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3) + Model(ab_term_model4)
     pars = ab_term_model_total.make_params()
-    pars['ampA1'].set(value=-2, max=-0.001)
+    pars['ampA1'].set(value=-2, max=-1)
     pars['ampB1'].set(value=0, vary=False)
     pars['cen1'].set(value=peak1[1], vary=False)
-    pars['wid1'].set(fwhm(0.6), min=fwhm(0.8), max=fwhm(0.2))
-    pars['ampA2'].set(value=0, vary=False)
-    pars['ampB2'].set(value=-0.4, vary=True)
-    pars['cen2'].set(value=1.8, vary=True, min=1.3, max=2.0)
-    pars['wid2'].set(fwhm(0.7), min=fwhm(0.8), max=fwhm(0.2))
-    pars['ampA3'].set(value=0)
-    pars['ampB3'].set(value=-2, vary=True)
+    pars['wid1'].set(10, min=fwhm(0.8), max=fwhm(0.2))
+    pars['ampA2'].set(value=0, vary=True)
+    pars['ampB2'].set(value=-1, vary=True)
+    pars['cen2'].set(value=1.5, vary=True, min=1.5, max=2.0)
+    pars['wid2'].set(2.75, min=fwhm(0.8), max=fwhm(0.2))
+    pars['ampA3'].set(value=-1)
+    pars['ampB3'].set(value=5, vary=True)
     pars['cen3'].set(value=peak3[1], vary=False)
-    pars['wid3'].set(fwhm(0.5), min=fwhm(1.5), max=fwhm(0.1))
-    # pars['ampA4'].set(value=2)
-    # pars['ampB4'].set(value=-4, vary=True, min=-8, max=4)
-    # pars['cen4'].set(value=peak4[1], vary=True, min=2.8, max=5)
-    # pars['wid4'].set(fwhm(1.5), min=fwhm(2), max=fwhm(0.5))
+    pars['wid3'].set(1, min=0, max=10)
+    pars['ampA4'].set(value=2)
+    pars['ampB4'].set(value=0, vary=True, min=-8, max=4)
+    pars['cen4'].set(value=3.5, vary=True, min=2.8, max=5)
+    pars['wid4'].set(3, min=fwhm(2), max=fwhm(0.5))
 
     print(pars)
 
@@ -421,7 +421,7 @@ if __name__ == '__main__':
     gauss2 = GaussianModel(prefix='g2_')
     gauss3 = GaussianModel(prefix='g3_')
     gauss4 = GaussianModel(prefix='g4_')
-    # exp = ExponentialModel(prefix='exp_')
+    exp = ExponentialModel(prefix='exp_')
 
     abs_model = gauss1 + gauss2 + gauss3 + gauss4
     pars = abs_model.make_params()
@@ -436,10 +436,10 @@ if __name__ == '__main__':
     pars['g3_sigma'].set(value=param_list[2][1], vary=False)
     pars['g3_amplitude'].set(value=.2, min=0)
     pars['g4_center'].set(value=4, min=2.5, max=6, vary=True)
-    pars['g4_sigma'].set(value=fwhm(1), min=fwhm(3), max=fwhm(.2), vary=True)
+    pars['g4_sigma'].set(value=0.3, max=0.5, vary=True)
     pars['g4_amplitude'].set(value=.5, min=0)
-    # pars['exp_amplitude'].set(value=0.01)
-    # pars['exp_decay'].set(value=-5, max=0)
+    # pars['exp_amplitude'].set(value=0.01, max=0.02)
+    # pars['exp_decay'].set(value=-4, vary=False)
     
     # init = mod.eval(pars, x=x)
     abs_fit_output = abs_model.fit(abs_y, pars, x=abs_x)
@@ -466,7 +466,7 @@ if __name__ == '__main__':
     ax1.fill_between(x, list(mcd_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='lspr', alpha=0.2)
     ax1.fill_between(x, list(mcd_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
     ax1.fill_between(x, list(mcd_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
-    # ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
 
     ax2.plot(abs_x, abs_y, 'k-', label='raw data')
     ax2.plot(abs_x, abs_fit_output.best_fit, 'r-', label='best fit')
@@ -474,7 +474,7 @@ if __name__ == '__main__':
     ax2.fill_between(abs_x, list(abs_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
     ax2.fill_between(abs_x, list(abs_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
     ax2.fill_between(abs_x, list(abs_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
-    # ax2.plot(abs_x, list(abs_comps.values())[3], color='purple', lw=1.5, ls='--', label='Continuum')
+    # ax2.plot(abs_x, list(abs_comps.values())[4], color='purple', lw=1.5, ls='--', label='Continuum')
 
     ax1.legend(loc=0)
     ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')

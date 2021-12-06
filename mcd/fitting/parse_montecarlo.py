@@ -11,7 +11,7 @@ def parse_params(param_data,peak_count):
         all_peak_data["peak_{0}_data".format(n)] = pd.DataFrame()
         print('Parsing Peak {0}...'.format(n))
         for i, param in param_data.iterrows():
-            peak_num = i%3 + 1
+            peak_num = i%int(peak_count) + 1
             if peak_num == n:
                 all_peak_data["peak_{0}_data".format(n)] = pd.concat([all_peak_data["peak_{0}_data".format(n)], param.to_frame().T])
     return all_peak_data
@@ -40,14 +40,14 @@ def plot_params(all_params,material):
 
 if __name__ == '__main__':
 
-    material = '5-1CFS'
-    peak_count = '3'
+    material = '3-1CFS'
+    peak_count = '4'
 
-    working_path = '/home/jkusz/github/igloo/mcd/fitting/temp_param/'
+    working_path = '/home/jkusz/github/igloo/mcd/fitting/temp_param_2/'
     os.chdir(working_path)
 
     '''Read Data'''
-    param_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp_param/5-1CFS_parameter_testing.csv'
+    param_data_path = '/home/jkusz/github/igloo/mcd/fitting/temp_param_2/3-1CFS_4peaks_parameter_testing.csv'
     param_data = pd.read_csv(param_data_path, index_col=0)
 
     '''Parse Data'''
