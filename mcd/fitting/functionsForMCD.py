@@ -71,47 +71,9 @@ def zeroSubtract(worked_up_data):
             worked_up_data[field + '_abs_diff'] = worked_up_data[col] - worked_up_data['0_absorption']
     return worked_up_data
 
-# def simulateMCDSpectra(data,ev=0.04): #function to visually show separation of LCP and RCP from base abs
-#     x = data['x']
-#     y = data['y']
-#     coeff_L=poly.polyfit([x+ev for x in x],y,9) #LCP poly fit coeffs
-#     coeff_R=poly.polyfit([x-ev for x in x],y,9) #RCP poly fit coeffs
-#     fit_L=poly.polyval(x,coeff_L) #LCP line fit
-#     fit_R=poly.polyval(x,coeff_R) #RCP line fit
-
-#     fit_diff=(fit_L-fit_R)/(np.max(x)) #calculate LCP-RCP normalized to absorbance max. Will incorporate based on field later. --Was originally multiplied by 1000 to match publication units.--
-#     # x = x.values.tolist()fit_R
-#     plt.figure(figsize=(6,6),dpi=80)
-
-#     plt.subplot(2,1,1)
-#     plt.ylabel('Absorbance (a.u.)')
-#     plt.xlim(3.2,.55)
-#     plt.scatter(x,y,s=1.3,c='Black')
-#     plt.plot(x,fit_L,c='Blue')
-#     plt.plot(x,fit_R,c='Red')
-#     plt.legend(('LCP','RCP','Raw'))
-
-#     plt.subplot(2,1,2)
-#     plt.ylabel('Absorbance (a.u.)')
-#     plt.xlabel('Energy (eV)')
-#     plt.xlim(3.0,.55)
-#     plt.plot(x,fit_diff,c='Purple')
-#     plt.legend(('Simulated MCD'))
-#     plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
-#     plt.show()
-
-#     return fit_diff
-
-# def func(x,ev,y): #define simulated mcd function from absorbance spectrum
-#     coeffL=poly.polyfit(df_abs['energy']+ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
-#     coeffR=poly.polyfit(df_abs['energy']-ev,df_abs['absorbance'],9) #find polynomial coeffs from original absorption spectra
-#     LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
-#     RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
-
-#     # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
-#     return LCP-RCP-y #switch to this if doing y adjustment
-
-def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and RCP from base abs
+def simulateMCDSpectra(data,ev=0.04): #function to visually show separation of LCP and RCP from base abs
+    x = data['energy']
+    y = data['2_absorption']
     coeff_L=poly.polyfit([x+ev for x in x],y,9) #LCP poly fit coeffs
     coeff_R=poly.polyfit([x-ev for x in x],y,9) #RCP poly fit coeffs
     fit_L=poly.polyval(x,coeff_L) #LCP line fit
@@ -134,7 +96,6 @@ def plot_CP_diff(x,y,ev=0.04): #function to visually show separation of LCP and 
     plt.xlabel('Energy (eV)')
     plt.xlim(3.0,.55)
     plt.plot(x,fit_diff,c='Purple')
-    plt.plot([10,0],np.zeros(2),c='black',ls='--',lw=0.6) #draw baseline at 0T
     plt.legend(('Simulated MCD'))
     plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
@@ -150,8 +111,8 @@ def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correcti
         if 'deltaA_diff' in col:
             field = col.split("_")[0]
             if field is not '0':
-                xdata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive=True),'energy'].values
-                ydata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive=True),col].values
+                xdata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive='both'),'energy'].values
+                ydata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive='both'),col].values
                 B_fit=int(field) #used for meV plotting later in zdf
                 B=np.absolute(B_fit) #magnetic field (T)
                 B_list.append(B_fit)
@@ -209,8 +170,32 @@ def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correcti
     average_m = np.mean(m_list)
     std_dev_m = np.std(m_list)
     zdf = pd.DataFrame(list(zip(B_list,ev_list,std_dev_fit_list,m_list)),columns=['B','E_Z','E_Z_std_dev','m*'])
-
     return average_ev, std_dev_ev, average_m, std_dev_m, zdf
+
+def findPeakMax(data,max_ev,min_ev,peak_number,spectra='MCD'):
+    columns = ['Field',spectra + '_' + peak_number + '_amp_max',spectra + '_' + peak_number + '_amp_min']
+    amplitudePair = []
+    for col in data:
+        if 'deltaA_diff' in col or 'absorption' in col:
+            field = col.split("_")[0]
+            if field is not '0':
+                xdata = data.loc[data['energy'].between(min_ev, max_ev, inclusive='both'),'energy'].values
+                ydata = data.loc[data['energy'].between(min_ev, max_ev, inclusive='both'),col].values
+                ydata_max = np.max(ydata)
+                ydata_min = np.min(ydata)
+                amplitudePair.append([int(field),ydata_max,ydata_min])
+    amplitudeData = pd.DataFrame(amplitudePair, columns=columns)
+    return amplitudeData
+
+def findAllPeaks(data,ev_list,spectra='MCD'):
+    allAmplitudeData = pd.DataFrame()
+    for peak_num, ev_list in enumerate(ev_list):
+        max_ev = ev_list[0]
+        min_ev = ev_list[1]
+        peak_num = str(peak_num + 1)
+        amplitudeData = findPeakMax(data, max_ev, min_ev, peak_num, spectra=spectra)
+        allAmplitudeData = pd.concat([allAmplitudeData, amplitudeData], axis=1).T.drop_duplicates().T
+    return allAmplitudeData
 
 def convertToCSV(data, spectra):
     csv_df = pd.DataFrame()
