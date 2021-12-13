@@ -6,19 +6,29 @@ import numpy.polynomial.polynomial as poly
 from matplotlib import pyplot as plt
 from scipy import signal,optimize,integrate,constants as const
 import matplotlib.lines as lines
+import seaborn as sns
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 import sys
 
-def parseMCD(path,data_type,verbose=False):
+def parseMCD(path,data_type,verbose=False,version='2021'):
     d={}
     for _, _, files in os.walk(path): #walk along all files in directory given a path
         for name in files: #for each file in list of files...
             if "test" not in str.lower(name): #remove any test files performed during data acqusition
-                name_parse = re.search('(.*)(?:-0T_)(.*)',name) #parse filename to get field and scan numbers
-                try:
-                    field = name_parse.group(1) 
-                except AttributeError:
-                    print("Possible input file formatting error?")
-                scan_number = name_parse.group(2)
+                if version == '2021': #format example: "2-0T_2", is 2T, 3rd scan
+                    name_parse = re.search('(.*)(?:-0T_)(.*)', name) #parse filename to get field and scan numbers
+                    try:
+                        field = name_parse.group(1) 
+                    except AttributeError:
+                        print("Possible input file formatting error?")
+                    scan_number = name_parse.group(2)
+                elif version == '2020': #format example: "0T_Mid_0" is 0T, 1st scan
+                    name_parse = re.split('_', name)
+                    try:
+                        field = re.search('(.*)(?=T)', name_parse[0]).group(1)
+                    except:
+                        print("Possible input file formatting error?")
+                    scan_number = name_parse[2]
                 if verbose == True:
                     print("Adding", field + "T, Scan # " + scan_number + "...") #uncomment to check files are being added/named correctly
                 df=pd.read_table(path+name, sep='\t',names=['wavelength','pemx','pemy','chpx','chpy','deltaA']) #create dataframe for each file
@@ -26,6 +36,45 @@ def parseMCD(path,data_type,verbose=False):
                 df['mdeg']=df['deltaA']*32982 # calculate mdeg from deltaA
                 d[field + " " + scan_number + " " + data_type] = df #send dataframe to dictionary
     return d
+
+def parseABS(path):
+    d_abs = {}
+    for _, _, files in os.walk(path): #walk along all files in directory given a path
+        for name in files: #for each file in list of files...
+            if "blank" in str.lower(name): #select for blank and ems file
+                dic_name="Blank"
+                # print("Adding", dic_name + "...") #uncomment to check files are being added/named correctly
+                df=pd.read_table(path+name, sep='\t',names=['wavelength','pemx','pemy','chpx','chpy','deltaA']) #create dataframe for each file
+                df['energy']=1240/df['wavelength'] #calculate energy from wavelength
+                d_abs[dic_name] = df #send dataframe to dictionary
+            if "ems" or "sample" in str.lower(name):
+                dic_name="Ems"
+                # print("Adding", dic_name + "...") #uncomment to check files are being added/named correctly
+                df=pd.read_table(path+name, sep='\t',names=['wavelength','pemx','pemy','chpx','chpy','deltaA']) #create dataframe for each file
+                df['energy']=1240/df['wavelength'] #calculate energy from wavelength
+                d_abs[dic_name] = df #send dataframe to dictionary
+    df_abs=pd.DataFrame(data=(d_abs['Ems']['wavelength'], d_abs['Ems']['energy'], d_abs['Ems']['chpx'], d_abs['Blank']['chpx'])).transpose() #make dataframe from ems/blank dictionary
+    df_abs.columns=['wavelength','energy','ems','blank'] #setup columns
+    df_abs=df_abs[(df_abs != 0).all(1)] #remove rows with 0's.
+    df_abs['absorbance']=(2-np.log10(100 * df_abs['ems'] / df_abs['blank'])) #calculate absorbance from emission and blank data
+    df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],43,2) #smooth absorbance plot using Savitzky-Golay
+    df_abs = df_abs[df_abs.wavelength < 1700] #remove collection greater than 1700 nm (used for InGaAs errors mainly)
+    return df_abs
+
+def plotABS(df,material,max_ev,min_ev,op='smooth'):
+    fig,ax=plt.subplots(figsize=(4,2))
+    plt.xlabel('Energy (eV)')
+    if op=='raw':
+        plt.title("Raw Absorbance")
+        sns.lineplot(data=df,x='energy',y='absorbance',color='Black')
+    if op=='smooth':
+        plt.title("Smoothed Absorbance")
+        sns.lineplot(data=df,x='energy',y='smoothed_absorbance',color='Black')
+    plt.ylabel('Absorbance (a.u.)')
+    plt.xlim(max_ev,min_ev)
+    plt.style.use('seaborn-paper')
+    plt.savefig(material + '_abs',dpi=200,transparent=False,bbox_inches='tight')
+    plt.show()
 
 def calcAverageMCD(dic): #need to define this before finding the mcd difference
     MCDAveragesDic = {}
@@ -71,9 +120,12 @@ def zeroSubtract(worked_up_data):
             worked_up_data[field + '_abs_diff'] = worked_up_data[col] - worked_up_data['0_absorption']
     return worked_up_data
 
-def simulateMCDSpectra(data,ev=0.04): #function to visually show separation of LCP and RCP from base abs
+def simulateMCDSpectra(data,ev=0.04,version='2021'): #function to visually show separation of LCP and RCP from base abs
     x = data['energy']
-    y = data['2_absorption']
+    if version == '2020':
+        y = data['absorbance']
+    else:
+        y = data['2_absorption']
     coeff_L=poly.polyfit([x+ev for x in x],y,9) #LCP poly fit coeffs
     coeff_R=poly.polyfit([x-ev for x in x],y,9) #RCP poly fit coeffs
     fit_L=poly.polyval(x,coeff_L) #LCP line fit
@@ -102,7 +154,7 @@ def simulateMCDSpectra(data,ev=0.04): #function to visually show separation of L
 
     return fit_diff
 
-def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correction_factor=1):
+def calc_effective_mass_and_plot(mcd_data,abs_data,max_ev,min_ev,material,correction_factor=1,version='2021'):
     ev_list=[]
     std_dev_fit_list=[]
     m_list=[]
@@ -116,15 +168,26 @@ def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correcti
                 B_fit=int(field) #used for meV plotting later in zdf
                 B=np.absolute(B_fit) #magnetic field (T)
                 B_list.append(B_fit)
-                ydata=ydata/(np.max(absorption_data[field + '_absorption'])*correction_factor) #Uncomment to normalize by abs max
-                def func(x,ev,y): #define simulated mcd function from absorbance spectrum
-                    coeffL=poly.polyfit(absorption_data['energy']+ev,absorption_data[field + '_absorption'],9) #find polynomial coeffs from original absorption spectra
-                    coeffR=poly.polyfit(absorption_data['energy']-ev,absorption_data[field + '_absorption'],9) #find polynomial coeffs from original absorption spectra
-                    LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
-                    RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
+                if version == '2020':
+                    ydata=ydata/(np.max(abs_data['absorbance'])*correction_factor) #Uncomment to normalize by abs max
+                    def func(x,ev,y): #define simulated mcd function from absorbance spectrum
+                        coeffL=poly.polyfit(abs_data['energy']+ev,abs_data['smoothed_absorbance'],9) #find polynomial coeffs from original absorption spectra
+                        coeffR=poly.polyfit(abs_data['energy']-ev,abs_data['smoothed_absorbance'],9) #find polynomial coeffs from original absorption spectra
+                        LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
+                        RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
 
-                    # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
-                    return LCP-RCP-y #switch to this if doing y adjustment
+                        # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+                        return LCP-RCP-y #switch to this if doing y adjustment
+                else:
+                    ydata=ydata/(np.max(abs_data[field + '_absorption'])*correction_factor) #Uncomment to normalize by abs max
+                    def func(x,ev,y): #define simulated mcd function from absorbance spectrum
+                        coeffL=poly.polyfit(abs_data['energy']+ev,abs_data[field + '_absorption'],9) #find polynomial coeffs from original absorption spectra
+                        coeffR=poly.polyfit(abs_data['energy']-ev,abs_data[field + '_absorption'],9) #find polynomial coeffs from original absorption spectra
+                        LCP=poly.polyval(x,coeffL) #find y from +ev shifted LCP spectrum
+                        RCP=poly.polyval(x,coeffR) #find y from -ev shifted RCP spectrum
+
+                        # return LCP-RCP #return y from LCP-RCP, Note: may need to flip this depending on spectrum
+                        return RCP-LCP-y #switch to this if doing y adjustment
 
                 # ydata_normalized=np.nan_to_num(ydata_normalized, nan=0.0)
                 # if B_fit < 0:
@@ -147,24 +210,24 @@ def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correcti
                 e=const.e #charge of electron (C)
                 m_e=const.m_e #mass of electron (kg)
                 w_c=ev/const.physical_constants['Planck constant over 2 pi in eV s'][0] #cyclotron resonance frequency from Planck constant in eV/Hz
-                # print(e, m_e, w_c)
-                # print(const.physical_constants['Planck constant in eV/Hz'][0])
                 effective_mass=e*B/w_c/2/m_e/const.pi #effective mass (m*/m_e)
-                # print(effective_mass)
                 m_list.append(np.absolute(effective_mass)) #add m* to list
 
                 fig,ax=plt.subplots(figsize=(2,4))
                 plt.title(str(field) + 'T Fit')
                 plt.ylabel(r'MCD ($\Delta$A/A$_{max}$)')
                 plt.xlabel('Energy (eV)')
-                plt.xlim(4,.55)
+                plt.xlim(max_ev+0.1,min_ev-0.1)
+                plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
+                ax.xaxis.set_major_locator(MultipleLocator(0.2))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
                 plt.plot(xdata,ydata,label='experiment_data',c='Black')
                 plt.plot(xdata,[func(x,*popt) for x in xdata],label='simulated_fit',c='Red')
                 baseline = lines.Line2D(range(10),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
                 ax.add_line(baseline) #add baseline to plot
-                plt.legend(loc=0)
-                plt.text(3,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1}) #places text according to graph x,y coords
-                plt.savefig(str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
+                # plt.legend(loc=0)
+                # plt.text(3,0,'%.3f meV\n%.3f m*' % (ev*1000,effective_mass),fontweight='bold',bbox={'facecolor':'white','alpha':0.5,'pad':0.1}) #places text according to graph x,y coords
+                plt.savefig(material + '_' + str(field) + "T_fit",dpi=100,transparent=False,bbox_inches='tight')
     average_ev = np.mean(ev_list)
     std_dev_ev = np.std(ev_list)
     average_m = np.mean(m_list)
@@ -172,22 +235,27 @@ def calc_effective_mass_and_plot(absorption_data,mcd_data,max_ev,min_ev,correcti
     zdf = pd.DataFrame(list(zip(B_list,ev_list,std_dev_fit_list,m_list)),columns=['B','E_Z','E_Z_std_dev','m*'])
     return average_ev, std_dev_ev, average_m, std_dev_m, zdf
 
-def findPeakMax(data,max_ev,min_ev,peak_number,spectra='MCD'):
+def findPeakMax(data,max_ev,min_ev,peak_number,spectra):
     columns = ['Field',spectra + '_' + peak_number + '_amp_max',spectra + '_' + peak_number + '_amp_min']
     amplitudePair = []
     for col in data:
-        if 'deltaA_diff' in col or 'absorption' in col:
+        if 'deltaA_diff' in col or 'absorption' in col or 'absorbance' in col:
             field = col.split("_")[0]
             if field is not '0':
                 xdata = data.loc[data['energy'].between(min_ev, max_ev, inclusive='both'),'energy'].values
                 ydata = data.loc[data['energy'].between(min_ev, max_ev, inclusive='both'),col].values
-                ydata_max = np.max(ydata)
-                ydata_min = np.min(ydata)
-                amplitudePair.append([int(field),ydata_max,ydata_min])
+                try:
+                    if np.mode(ydata) > 0:
+                        ydataAmplitude = np.max(ydata)
+                    elif np.mode(ydata) < 0 :
+                        ydataAmplitude = np.min(ydata)
+                except ValueError:
+                    print('Error! Zero-size array possible. Perhaps peak limits are set incorrectly?')
+                amplitudePair.append([int(field),ydataAmplitude])
     amplitudeData = pd.DataFrame(amplitudePair, columns=columns)
     return amplitudeData
 
-def findAllPeaks(data,ev_list,spectra='MCD'):
+def findAllPeaks(data,ev_list,spectra):
     allAmplitudeData = pd.DataFrame()
     for peak_num, ev_list in enumerate(ev_list):
         max_ev = ev_list[0]
@@ -217,7 +285,10 @@ def convertToCSV(data, spectra):
         except KeyError:
             csv_df = df
     csv_df = csv_df.reindex(sorted(list(csv_df), key=lambda x: x.split('_')[-1]), axis=1)
-    csv_df.insert(0,'energy', [1240/x for x in csv_df['wavelength']])
+    try:
+        csv_df.insert(0,'energy', [1240/x for x in csv_df['wavelength']])
+    except KeyError:
+        print("Did you type in the correct folder?")
     csv_df.set_index('wavelength',inplace=True)
     return csv_df
 

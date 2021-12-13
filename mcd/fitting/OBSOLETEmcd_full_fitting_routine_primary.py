@@ -332,7 +332,7 @@ def calc_effective_mass_and_plot(abs_fit,diff_dic,correction_factor=1):
             # c=const.c #speed of light (m/s)
             e=const.e #charge of electron (C)
             m_e=const.m_e #mass of electron (kg)
-            w_c=ev/const.physical_constants['Planck constant in eV/Hz'][0] #cyclotron resonance frequency from Planck constant in eV/Hz
+            w_c=ev/const.physical_constants['Planck constant over 2 pi in eV s'][0] #cyclotron resonance frequency from Planck constant in eV/Hz
             effective_mass=e*B/w_c/2/m_e/const.pi #effective mass (m*/m_e)
             m_list.append(np.absolute(effective_mass)) #add m* to list
 
