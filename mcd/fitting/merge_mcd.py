@@ -39,45 +39,53 @@ def plot_spectra(df,abs_df,title):
     ax2 = fig.add_subplot(gs[1])
 
     ### Setup Data for Abs top fig
-    x = abs_df['wavelength']
+    x = abs_df['energy']
     y = abs_df['normalized_absorbance']
     ax1.plot(x, y, 'k-', label='abs data')
 
     ### Setup Data for MCD bottom fig
     ##setup color bar
     # norm=plt.Normalize(-10,10) #optional to remove discrete H bar divisions
-    norm=colors.BoundaryNorm(np.linspace(-10,10,11),ncolors=256)
+    norm=colors.BoundaryNorm(np.linspace(-10,10,12),ncolors=256)
     sm=plt.cm.ScalarMappable(cmap='coolwarm_r',norm=norm) 
-    cbaxes = inset_axes(ax2, width="30%", height="4%", loc='upper right',borderpad=1.2) 
+    cbaxes = inset_axes(ax2, width="25%", height="4%", loc='upper left',borderpad=1.6) 
     # cbaxes.xaxis.set_ticks_position('top') # allegedly this should work, but doesn't. Instead using borderpad to keep away from edges.
-    cb = plt.colorbar(sm, ticks=range(-10,11,10), cax=cbaxes, orientation='horizontal')
+    cb = plt.colorbar(sm, ticks=range(-10,12,10), cax=cbaxes, orientation='horizontal')
     cb.ax.tick_params(labelsize=8)
-    sns.lineplot(data=df,x='wavelength',y='deltaA', linewidth=0.6,
+    sns.lineplot(data=df,x='energy',y='deltaA', linewidth=0.6,
                 hue='field', hue_norm=(-10,10),
-                palette=sns.color_palette('coolwarm_r',as_cmap=True),
+                palette='coolwarm_r',
                 legend=None, ax=ax2)
     ax2.plot([0,2000],[0,0],'k-',lw=0.8)
+    ax1.plot([1240/1100,1240/1100],[-10,10],'k--',lw=1)
+    ax2.plot([1240/1100,1240/1100],[-10,10],'k--',lw=1)
+    ax2.text(1.870, 0.85, r'Field, $H$ (T)', horizontalalignment='center')
+    ax2.text(1.5, -0.80, r'$H+$', horizontalalignment='center', c='blue', size='large')
+    ax2.text(1.5, 0.60, r'$H-$', horizontalalignment='center', c='red', size='large')
+
 
     # ax1.legend(loc='best')
-    ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')
+    ax2.set_xlabel(r'Energy, $h\nu$ (eV)')
     ax2.set_ylabel(r'MCD, $\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)',labelpad=5,size=9)
     ax1.set_ylabel(r'Absorbance, A (a.u.)',labelpad=14,size=9)
 
-    ax1.set_xlim(400,1600)
-    ax1.set_ylim(0.1,1.2)
-    ax2.set_xlim(400,1600)
-    ax2.set_ylim(-1.4,1.4)
+    # ax1.set_xlim(400,1600)
+    ax1.set_xlim(2.1,.75)
+    ax1.set_ylim(0.55,1.1)
+    # ax2.set_xlim(400,1600)
+    ax2.set_ylim(-1.1,1.1)
+    ax2.set_xlim(2.1,.75)
 
-    ax3 = twin_axis(ax1,xlabel=r'Energy, $h\nu$ (eV)')
+    ax3 = twin_axis(ax1,xlabel=r'Wavelength, $\lambda$ (nm)')
     ax4 = twin_axis(ax2,xlabel=r'')
 
     ax1.xaxis.set_major_formatter(plt.NullFormatter())
     ax4.xaxis.set_major_formatter(plt.NullFormatter())
 
-    ax1.xaxis.set_major_locator(MultipleLocator(200))
-    ax2.xaxis.set_major_locator(MultipleLocator(200))
-    ax3.xaxis.set_major_locator(MultipleLocator(0.5))
-    ax4.xaxis.set_major_locator(MultipleLocator(0.5))
+    ax1.xaxis.set_major_locator(MultipleLocator(.4))
+    ax2.xaxis.set_major_locator(MultipleLocator(.4))
+    ax3.xaxis.set_major_locator(MultipleLocator(300))
+    ax4.xaxis.set_major_locator(MultipleLocator(300))
 
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
@@ -100,7 +108,7 @@ def plot_spectra(df,abs_df,title):
     ax4.xaxis.set_tick_params(which='major', size=5, width=0.8, direction='in', bottom=False)
     ax4.xaxis.set_tick_params(which='minor', size=2, width=0.8, direction='in', bottom=False)
 
-    gs.tight_layout(fig)
+    # gs.tight_layout(fig)
     gs.update(hspace=0)
     plt.style.use('seaborn-paper')
     plt.savefig(title,format='png',dpi=300)
@@ -165,7 +173,7 @@ def merge_spectra(vis_data,nir_data,wavelength_match):
 # print(lsr_df.iloc[best_fit_lsr])
 
 if __name__ == '__main__':
-    working_path = '/home/jkusz/github/igloo/mcd/fitting/temp/'
+    working_path = '/home/jkusz/github/igloo/mcd/fitting/merged/'
     os.chdir(working_path)
 
     '''Setup Data Paths'''

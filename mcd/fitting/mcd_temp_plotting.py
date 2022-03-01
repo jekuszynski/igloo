@@ -51,7 +51,7 @@ def parse_mcd(path):
     # print(d['-4T_0']['field'])
     # sys.exit()
 
-def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata='mdeg'):
+def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata='deltaA'):
     plt.clf()
     fig,ax=plt.subplots(figsize=(4,2))
     # norm=plt.Normalize(-10,10) #optional to remove discrete H bar divisions
@@ -62,7 +62,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
         #Dr. Seaborn or: How I Learned to Stop Worrying and Love sns.lineplot. Such efficiency. Much wow.
         sns.lineplot(data=df,x=xdata,y=ydata, linewidth=0.6,
                     hue='temperature',hue_norm=(0,76),
-                    palette=sns.color_palette('coolwarm_r',as_cmap=True),
+                    palette='coolwarm_r',
                     legend=None)
     if x_axis=='Energy (eV)':
         ax.set_xlabel(x_axis)
@@ -70,7 +70,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
         plt.title("Raw MCD " + title)
     if op=='avg':
         plt.title("Averaged MCD " + title)
-    ax.set_ylabel('MCD (mdeg)')
+    ax.set_ylabel('MCD (deltaA)')
 
     # ax.xaxis.set_tick_params(which='major', size=5, width=1, direction='in', top='on')
     # ax.xaxis.set_tick_params(which='minor', size=2, width=1, direction='in', top='on')
@@ -83,7 +83,7 @@ def plot_mcd(dic,op='avg',x_axis='Energy (eV)',title='[PH]',xdata='energy',ydata
     # ax.yaxis.set_minor_locator(mpl.ticker.MultipleLocator(10))
 
     ax.set_xlim(1.75,.55)
-    ax.set_ylim(-20,5)
+    # ax.set_ylim(-20,5)
     
     # ax2=ax.twiny()
     # x_1, x_2 = ax.get_xlim()
@@ -149,9 +149,9 @@ def plot_diff_mcd(dic,op='avg',x_axis='Energy (eV)'):
     fig.colorbar(sm,ticks=range(0,11,2),label='H (T)') #make color bar based on H (T) for plot
     for df in dic.values():
         #Dr. Seaborn or: How I Learned to Stop Worrying and Love sns.lineplot. Such efficiency. Much wow.
-        sns.lineplot(data=df,x='energy',y='mdeg', linewidth=0.6,
+        sns.lineplot(data=df,x='energy',y='deltaA', linewidth=0.6,
                     hue='field',hue_norm=(0,10),
-                    palette=sns.color_palette('Greys',as_cmap=True),
+                    palette='Greys',
                     legend=None)
     if x_axis=='Energy (eV)':
         plt.xlabel(x_axis)
@@ -159,9 +159,9 @@ def plot_diff_mcd(dic,op='avg',x_axis='Energy (eV)'):
         plt.title("Raw MCD")
     if op=='avg':
         plt.title("Difference MCD")
-    plt.ylabel('MCD (mdeg)')
+    plt.ylabel('MCD (deltaA)')
     plt.xlim(3.2,.55)
-    baseline = lines.Line2D(range(6),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
+    baseline = lines.Line2D(range(10),np.zeros(1),c='black',ls='--',lw=0.6) #draw baseline at 0T
     ax.add_line(baseline) #add baseline to plot
     plt.style.use('seaborn-paper')
     plt.savefig('diff_mcd',dpi=100,transparent=True,bbox_inches='tight')
@@ -175,69 +175,73 @@ def eV_to_nm(eV):
     nm = 1240/eV 
     return "%.0f" % nm
 
+if __name__ == '__main__':
 
+    workingPath = '/home/jkusz/github/igloo/mcd/fitting/VT_testing'
+    os.chdir(workingPath)
 
-'''-------------------------------FUNCTIONAL CODE BELOW-------------------------------'''
+    '''parse all data files'''
+    #Change these pathways if using from GitHub.
+    raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/VT-MCD 05-21-21 NIR 5-1/") #raw mcd data in dictionary
+    print(raw_mcd_dic)
+    '''fit raw and avg mcd straight from datafile - no workup'''
+    plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
+    df_avgs = calc_raw_avg_mcd(raw_mcd_dic) #
+    plot_mcd(df_avgs,'avg',title='sample')
 
+    '''mcd difference (no blank)'''
+    for name, df in df_avgs.items():
+        df_avgs[name]['avg-0T'] = df_avgs[name]['deltaA'] - df_avgs['75K-0T']['deltaA']
+        df_avgs[name]['avg-0T-75K'] = df_avgs[name]['avg-0T'] - df_avgs['75']['deltaA']
+    plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
+    plot_mcd(df_avgs,'avg',title='Diff_no_blank_0Twith75K_subbed',ydata='avg-0T-75K')
 
-'''parse all data files'''
-#Change these pathways if using from GitHub.
-raw_mcd_dic = parse_mcd("/mnt/c/Users/roflc/Desktop/MCD DATA/5-1 CFS/VT-MCD 05-21-21 NIR 5-1/") #raw mcd data in dictionary
-print(raw_mcd_dic)
-'''fit raw and avg mcd straight from datafile - no workup'''
-plot_mcd(raw_mcd_dic,'raw',title='sample') #plot raw experimental mcd data
-df_avgs = calc_raw_avg_mcd(raw_mcd_dic) #
-plot_mcd(df_avgs,'avg',title='sample')
+    # sys.exit()
 
-'''mcd difference (no blank)'''
-for name, df in df_avgs.items():
-    df_avgs[name]['avg-0T'] = df_avgs[name]['mdeg'] - df_avgs['75K-0T']['mdeg']
-plot_mcd(df_avgs,'avg',title='Diff_no_blank_0T_subbed',ydata='avg-0T')
+    # fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
+    # average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,df_avgs)
+    # print(zdf)
+    # zdf.to_csv('zeeman_data.csv')
 
-sys.exit()
+    # m, b = np.polyfit(B_list,ev_list,1)
+    # plt.clf() #Clear all previous plots
+    # fig=plt.figure(figsize=(4,2))
+    # ax1=fig.add_subplot(111) #need this to add separate series to same graph
+    # ax1.scatter([x for x in zdf['B'] if x > 0], list(zdf.loc[zdf['B'] > 0,'E_Z']), label=r"$B(+)$",color="b")
+    # ax1.scatter(np.absolute([x for x in zdf['B'] if x < 0]), list(zdf.loc[zdf['B'] < 0,'E_Z']), label=r"$B(-)$",color="r")
+    # plt.legend(loc=0)
+    # # plt.plot(B_list, m*B_list + b)
+    # plt.xlabel('B (T)')
+    # plt.xticks(np.arange(0,11,2))
+    # ax1.set_xlim(1,11)
+    # ax1.set_ylim(0,0.24)
+    # plt.ylabel(r'$E_Z$ (meV)')
+    # plt.savefig('mev_test_plot.png',dpi=200,bbox_inches='tight')
+    # plt.show()
 
-fit_diff=plot_CP_diff(df_abs['energy'],df_abs['absorbance'])
-average_ev, std_dev_ev, average_m, std_dev_m, zdf = calc_effective_mass_and_plot(fit_diff,df_avgs)
-print(zdf)
-zdf.to_csv('zeeman_data.csv')
+    # '''write HTML file report'''
+    # # writeHTMLfile('mcd.html','11-11-2020')
+    # writeHTMLfile_difference('mcd_difference.html','03-30-2021, Both Max Signals')
 
-# m, b = np.polyfit(B_list,ev_list,1)
-plt.clf() #Clear all previous plots
-fig=plt.figure(figsize=(4,2))
-ax1=fig.add_subplot(111) #need this to add separate series to same graph
-ax1.scatter([x for x in zdf['B'] if x > 0], list(zdf.loc[zdf['B'] > 0,'E_Z']), label=r"$B(+)$",color="b")
-ax1.scatter(np.absolute([x for x in zdf['B'] if x < 0]), list(zdf.loc[zdf['B'] < 0,'E_Z']), label=r"$B(-)$",color="r")
-plt.legend(loc=0)
-# plt.plot(B_list, m*B_list + b)
-plt.xlabel('B (T)')
-plt.xticks(np.arange(0,11,2))
-ax1.set_xlim(1,11)
-ax1.set_ylim(0,0.24)
-plt.ylabel(r'$E_Z$ (meV)')
-plt.savefig('mev_test_plot.png',dpi=200,bbox_inches='tight')
-plt.show()
+    xldf = pd.DataFrame()
+    for field, d in df_avgs.items():
+        if field != '75K-0T':
+            # print(field)    
+            df = pd.DataFrame(d)
+            df.dropna(axis=1,how='all',inplace=True)
+            df.dropna(how='any',inplace=True)
+            df.drop(['chpx','chpy','temperature','pemx','pemy','energy','avg-0T'],axis=1,inplace=True)
+            rename_list = {'deltaA':'{}_deltaA'.format(field),'mdeg':'{}_mdeg'.format(field),'avg-0T-75K':'{}_avg-0T-75K'.format(field)}
+            df.rename(columns=rename_list,inplace=True)
+            # print(df)
+            try:
+                xldf = xldf.merge(df, how='inner', on='wavelength')
+            except KeyError:
+                xldf = df
 
-# '''write HTML file report'''
-# # writeHTMLfile('mcd.html','11-11-2020')
-writeHTMLfile_difference('mcd_difference.html','03-30-2021, Both Max Signals')
+    xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
+    xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
+    xldf.set_index('wavelength',inplace=True)
+    xldf.to_csv('5CFS-VT'+'_worked_up_diff_mcd.csv')
 
-xldf = pd.DataFrame()
-for field, d in diff_df.items():
-    df = pd.DataFrame(d)
-    df.dropna(axis=1,how='all',inplace=True)
-    df.dropna(how='any',inplace=True)
-    df.drop(['chpx','chpy','field','pemx','pemy','energy'],axis=1,inplace=True)
-    rename_list = {'deltaA':'{}_deltaA'.format(field),'mdeg':'{}_mdeg'.format(field),'zero_subtracted':'{}_zero_subtracted'.format(field)}
-    df.rename(columns=rename_list,inplace=True)
-    # print(df)
-    try:
-        xldf = xldf.merge(df, how='inner', on='wavelength')
-    except KeyError:
-        xldf = df
-
-xldf = xldf.reindex(sorted(list(xldf), key=lambda x: x.split('_')[-1]), axis=1)
-xldf.insert(0,'energy', [1240/x for x in xldf['wavelength']])
-xldf.set_index('wavelength',inplace=True)
-xldf.to_csv('04-27-2021'+'_worked_up_diff_mcd.csv')
-
-print("...\nDone!")
+    print("...\nDone!")

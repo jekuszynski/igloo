@@ -120,7 +120,7 @@ def zeroSubtract(worked_up_data):
             worked_up_data[field + '_abs_diff'] = worked_up_data[col] - worked_up_data['0_absorption']
     return worked_up_data
 
-def simulateMCDSpectra(data,ev=0.04,version='2021'): #function to visually show separation of LCP and RCP from base abs
+def simulateMCDSpectra(data,max_ev,min_ev,ev=0.04,version='2021'): #function to visually show separation of LCP and RCP from base abs
     x = data['energy']
     if version == '2020':
         y = data['absorbance']
@@ -131,24 +131,40 @@ def simulateMCDSpectra(data,ev=0.04,version='2021'): #function to visually show 
     fit_L=poly.polyval(x,coeff_L) #LCP line fit
     fit_R=poly.polyval(x,coeff_R) #RCP line fit
 
+    # y_list = y.tolist()
+    # y_max = np.max(y_list)
+    # ev_peak_index = y_list.index(y_max)
+    # ev_peak = x.iloc[ev_peak_index]
+    # print(ev_peak)
+
     fit_diff=(fit_L-fit_R)/(np.max(x)) #calculate LCP-RCP normalized to absorbance max. Will incorporate based on field later. --Was originally multiplied by 1000 to match publication units.--
     # x = x.values.tolist()fit_R
     plt.figure(figsize=(6,6),dpi=80)
 
-    plt.subplot(2,1,1)
+    ax1 = plt.subplot(2,1,1)
     plt.ylabel('Absorbance (a.u.)')
-    plt.xlim(3.2,.55)
+    plt.xlim(max_ev,min_ev)
+    plt.ylim(0.9,1.5)
+    ax1.yaxis.set_major_formatter(plt.NullFormatter())
+    ax1.axes.yaxis.set_ticklabels([])
     plt.scatter(x,y,s=1.3,c='Black')
-    plt.plot(x,fit_L,c='Blue')
-    plt.plot(x,fit_R,c='Red')
-    plt.legend(('LCP','RCP','Raw'))
+    plt.plot(x,fit_L,c='Red')
+    plt.plot(x,fit_R,c='Blue')
+    plt.plot([1.115,1.115],[0,10],c='Black',ls='--')
+    # plt.plot(x,fit_diff,c='Purple')
+    plt.legend(('Raw','LCP','RCP'))
+    
 
-    plt.subplot(2,1,2)
-    plt.ylabel('Absorbance (a.u.)')
+    ax2 = plt.subplot(2,1,2)
+    plt.ylabel(r'$\Delta$A')
     plt.xlabel('Energy (eV)')
-    plt.xlim(3.0,.55)
+    plt.xlim(max_ev,min_ev)
+    plt.ylim(-0.065,0.04)
+    ax2.yaxis.set_major_formatter(plt.NullFormatter())
+    ax2.axes.yaxis.set_ticklabels([])
     plt.plot(x,fit_diff,c='Purple')
-    plt.legend(('Simulated MCD'))
+    plt.plot([0,10],[0,0],c='Black',ls='--')
+    plt.plot([1.115,1.115],[-1,1],c='Black',ls='--')
     plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
     plt.show()
 
@@ -268,7 +284,7 @@ def findAllPeaks(data,ev_list,spectra):
 def convertToCSV(data, spectra):
     csv_df = pd.DataFrame()
     for name, df in data.items():
-        # print(df)
+        # print(name, df)
         field = int(re.split('\s+',name)[0])
         df.dropna(axis=1, how='all', inplace=True)
         df.dropna(how='any', inplace=True)
