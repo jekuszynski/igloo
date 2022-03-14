@@ -10,7 +10,7 @@ import seaborn as sns
 from scipy import optimize
 from scipy.stats import linregress
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
-from lmfit.models import GaussianModel, ExponentialModel
+from lmfit.models import GaussianModel, PowerLawModel
 from lmfit import Model
 import random
 from twilio.rest import Client
@@ -70,7 +70,7 @@ def plot_spectra(df,title,melt=True):
     ##plot all lines
     sns.lineplot(data=df_melt,x='energy',y='deltaA', linewidth=0.6,
                 hue='field',hue_norm=(-10,10),
-                palette=sns.color_palette('coolwarm_r',as_cmap=True),
+                palette='coolwarm_r',
                 legend=None)
 
     ax.set_xlabel('Energy (eV)')
@@ -277,9 +277,9 @@ if __name__ == '__main__':
         peak4 = [350, 1240/350] # "UV continuum" peak. may not end up using
     elif material == '5-1CFS':  
         peak1 = [1100, 1240/1100]
-        peak2 = [700, 1240/700]
-        peak3 = [500, 1240/500]
-        peak4 = [350, 1240/350]
+        peak2 = [1000, 1240/1000]
+        peak3 = [700, 1240/700]
+        peak4 = [400, 1240/400]
     elif material == '7-1CFS':
         peak1 = [1052, 1240/1052]
         peak2 = []
@@ -372,21 +372,21 @@ if __name__ == '__main__':
     #increasing peak number is an increase in ev, decrease in nm.
     ab_term_model_total = Model(ab_term_model1) + Model(ab_term_model2) + Model(ab_term_model3) + Model(ab_term_model4)
     pars = ab_term_model_total.make_params()
-    pars['ampA1'].set(value=-2, max=-1)
+    pars['ampA1'].set(value=-2, max=-0.5)
     pars['ampB1'].set(value=0, vary=False)
     pars['cen1'].set(value=peak1[1], vary=False)
-    pars['wid1'].set(10, min=fwhm(0.8), max=fwhm(0.2))
+    pars['wid1'].set(fwhm(0.4), min=fwhm(.8), max=fwhm(0.1))
     pars['ampA2'].set(value=0, vary=True)
-    pars['ampB2'].set(value=-1, vary=True)
-    pars['cen2'].set(value=1.5, vary=True, min=1.5, max=2.0)
-    pars['wid2'].set(2.75, min=fwhm(0.8), max=fwhm(0.2))
-    pars['ampA3'].set(value=-1)
-    pars['ampB3'].set(value=5, vary=True)
+    pars['ampB2'].set(value=-.001, max=0, vary=True)
+    pars['cen2'].set(value=peak2[1], vary=True, min=1, max=2.0)
+    pars['wid2'].set(value=fwhm(0.4), min=fwhm(.8), max=fwhm(0.05))
+    pars['ampA3'].set(value=0, vary=True)
+    pars['ampB3'].set(value=-.001, max=0, vary=True)
     pars['cen3'].set(value=peak3[1], vary=False)
-    pars['wid3'].set(1, min=0, max=10)
-    pars['ampA4'].set(value=2)
-    pars['ampB4'].set(value=0, vary=True, min=-8, max=4)
-    pars['cen4'].set(value=3.5, vary=True, min=2.8, max=5)
+    pars['wid3'].set(value=fwhm(0.4), min=fwhm(.8), max=fwhm(0.05), vary=True)
+    pars['ampA4'].set(value=0)
+    pars['ampB4'].set(value=-.001, vary=True, max=0)
+    pars['cen4'].set(value=peak4[1], vary=True, min=2.5, max=4)
     pars['wid4'].set(3, min=fwhm(2), max=fwhm(0.5))
 
     print(pars)
@@ -414,32 +414,34 @@ if __name__ == '__main__':
 
     mcd_comps = fitting_result.eval_components(x=x)
 
+    # abs_data = abs_data.loc[abs_data['energy'] <= 2.75] #remove extra UV data for fit
     abs_x = abs_data['energy']
-    abs_y = abs_data['normalized_absorbance']
+    # abs_y = abs_data['normalized_absorbance']
+    abs_y = abs_data['scattering_removed']
 
     gauss1 = GaussianModel(prefix='g1_')
     gauss2 = GaussianModel(prefix='g2_')
     gauss3 = GaussianModel(prefix='g3_')
     gauss4 = GaussianModel(prefix='g4_')
-    exp = ExponentialModel(prefix='exp_')
+    power = PowerLawModel(prefix='power_')
 
-    abs_model = gauss1 + gauss2 + gauss3 + gauss4
+    abs_model = gauss1 + gauss2 + gauss3 + gauss4 + power
     pars = abs_model.make_params()
 
     pars['g1_center'].set(value=param_list[0][0], vary=False)
     pars['g1_sigma'].set(value=param_list[0][1], vary=False)
-    pars['g1_amplitude'].set(value=.409, min=0, vary=True)
+    pars['g1_amplitude'].set(value=.3, min=0, vary=True)
     pars['g2_center'].set(value=param_list[1][0], vary=False)
     pars['g2_sigma'].set(value=param_list[1][1], vary=False)
-    pars['g2_amplitude'].set(value=.3668, min=0, vary=True)
+    pars['g2_amplitude'].set(value=.2, min=0, vary=True)
     pars['g3_center'].set(value=param_list[2][0], vary=False)
     pars['g3_sigma'].set(value=param_list[2][1], vary=False)
-    pars['g3_amplitude'].set(value=.2, min=0)
-    pars['g4_center'].set(value=4, min=2.5, max=6, vary=True)
-    pars['g4_sigma'].set(value=0.3, max=0.5, vary=True)
-    pars['g4_amplitude'].set(value=.5, min=0)
-    # pars['exp_amplitude'].set(value=0.01, max=0.02)
-    # pars['exp_decay'].set(value=-4, vary=False)
+    pars['g3_amplitude'].set(value=.1, min=0, vary=True)
+    pars['g4_center'].set(value=param_list[3][0], vary=False)
+    pars['g4_sigma'].set(value=param_list[3][1], vary=False)
+    pars['g4_amplitude'].set(value=.5, min=0, vary=True)
+    pars['power_amplitude'].set(value=0.0001)
+    pars['power_exponent'].set(value=4, vary=False)
     
     # init = mod.eval(pars, x=x)
     abs_fit_output = abs_model.fit(abs_y, pars, x=abs_x)
@@ -463,28 +465,28 @@ if __name__ == '__main__':
     colors = ["#ff3c38","#fff275","#e76f51","#6699cc"]
 
     ax1.plot(x, fitting_result.best_fit, 'r-', label='best fit')
-    ax1.fill_between(x, list(mcd_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='lspr', alpha=0.2)
-    ax1.fill_between(x, list(mcd_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
-    ax1.fill_between(x, list(mcd_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
-    ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='LSPR', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='IB-I', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB-II', alpha=0.2)
+    ax1.fill_between(x, list(mcd_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='CB', alpha=0.2)
 
     ax2.plot(abs_x, abs_y, 'k-', label='raw data')
     ax2.plot(abs_x, abs_fit_output.best_fit, 'r-', label='best fit')
-    ax2.fill_between(abs_x, list(abs_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='lspr', alpha=0.2)
-    ax2.fill_between(abs_x, list(abs_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='B-term-mixing', alpha=0.2)
-    ax2.fill_between(abs_x, list(abs_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB?', alpha=0.2)
-    ax2.fill_between(abs_x, list(abs_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='UV', alpha=0.2)
-    # ax2.plot(abs_x, list(abs_comps.values())[4], color='purple', lw=1.5, ls='--', label='Continuum')
+    ax2.fill_between(abs_x, list(abs_comps.values())[0], color=colors[-1], lw=1.5, ls='--', label='LSPR', alpha=0.2)
+    ax2.fill_between(abs_x, list(abs_comps.values())[1], color=colors[-2], lw=1.5, ls='--', label='IB-I', alpha=0.2)
+    ax2.fill_between(abs_x, list(abs_comps.values())[2], color=colors[-3], lw=1.5, ls='--', label='IB-II', alpha=0.2)
+    ax2.fill_between(abs_x, list(abs_comps.values())[3], color=colors[-4], lw=1.5, ls='--', label='CB', alpha=0.2)
+    ax2.plot(abs_x, list(abs_comps.values())[4], color='purple', lw=1.5, ls='--', label='UV Continuum')
 
-    ax1.legend(loc=0)
+    ax2.legend(loc=0)
     ax2.set_xlabel(r'Wavelength, $\lambda$ (nm)')
     ax1.set_ylabel(r'MCD, $\Delta$A/A$_{\mathrm{max}}$ (x $10^{-3}$)',labelpad=6, size=9)
     ax2.set_ylabel(r'Absorbance, A (a.u.)',labelpad=14,size=9)
 
-    ax1.set_xlim(3.09, 0.75)
+    ax1.set_xlim(3.08, 0.75)
     ax2.set_xlim(ax1.get_xlim())
-    ax2.set_ylim(0,1.1)
-    ax1.set_ylim(-1.4,0.5)
+    ax2.set_ylim(0,0.7)
+    ax1.set_ylim(-1,0.5)
 
     ax3 = twin_axis(ax1)
     ax4 = twin_axis(ax2)
