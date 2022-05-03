@@ -229,7 +229,7 @@ def plot_peak_params(df,fname,num=1):
 
 if __name__ == '__main__':
     
-    material = '5-1CFS'
+    material = '5-1CFS_VT'
     peak_count = '4'
 
     working_path = '/home/jkusz/github/igloo/mcd/fitting/temp_param_2/'
