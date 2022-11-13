@@ -2,3 +2,5 @@
 CFS*/
 *CFS/
 abs/pump_probe/Cs_fitting.py
+mcd/fitting/temp*
+data

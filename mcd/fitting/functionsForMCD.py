@@ -57,7 +57,7 @@ def parseABS(path):
     df_abs.columns=['wavelength','energy','ems','blank'] #setup columns
     df_abs=df_abs[(df_abs != 0).all(1)] #remove rows with 0's.
     df_abs['absorbance']=(2-np.log10(100 * df_abs['ems'] / df_abs['blank'])) #calculate absorbance from emission and blank data
-    df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],43,2) #smooth absorbance plot using Savitzky-Golay
+    df_abs['smoothed_absorbance']=signal.savgol_filter(df_abs['absorbance'],21,2) #smooth absorbance plot using Savitzky-Golay
     df_abs = df_abs[df_abs.wavelength < 1700] #remove collection greater than 1700 nm (used for InGaAs errors mainly)
     return df_abs
 
@@ -95,6 +95,15 @@ def calcDifference(signal, blank, spectra):
     for name, signal_df in signal.items():
         field = re.split('\s+',name)[0]
         blank_df = blank[field + ' blank']
+        # print(signal_df, blank_df)
+        # sys.exit()
+        # signal_df.set_index('wavelength', inplace=True)
+        # blank_df.set_index('wavelength', inplace=True)
+        # signal_df, blank_df = signal_df.align(blank_df, axis=0, fill_value = 0) #this fixes any mismatches in wavelength that are present
+        # signal_df.reset_index(inplace=True)
+        # blank_df.reset_index(inplace=True)
+        # # print(signal_df, blank_df)
+        # # sys.exit()
         if spectra == "MCD":
             dic_label = field + ' difference'
             new_dic[dic_label] = signal_df.copy()
@@ -106,6 +115,7 @@ def calcDifference(signal, blank, spectra):
             new_dic[dic_label].insert(loc=len(new_dic[dic_label].columns), column='signal', value=signal_df['chpx']) 
             new_dic[dic_label].insert(loc=len(new_dic[dic_label].columns), column='blank', value=blank_df['chpx']) 
             new_dic[dic_label]['absorption'] = 2 - np.log10(100 * signal_df['chpx'] / blank_df['chpx'])
+    # print(signal_df, blank_df)
     return new_dic
     
 def zeroSubtract(worked_up_data):
@@ -144,7 +154,7 @@ def simulateMCDSpectra(data,max_ev,min_ev,ev=0.04,version='2021'): #function to 
     ax1 = plt.subplot(2,1,1)
     plt.ylabel('Absorbance (a.u.)')
     plt.xlim(max_ev,min_ev)
-    plt.ylim(0.9,1.5)
+    plt.ylim(0,.3)
     ax1.yaxis.set_major_formatter(plt.NullFormatter())
     ax1.axes.yaxis.set_ticklabels([])
     plt.scatter(x,y,s=1.3,c='Black')
@@ -159,14 +169,14 @@ def simulateMCDSpectra(data,max_ev,min_ev,ev=0.04,version='2021'): #function to 
     plt.ylabel(r'$\Delta$A')
     plt.xlabel('Energy (eV)')
     plt.xlim(max_ev,min_ev)
-    plt.ylim(-0.065,0.04)
+    plt.ylim(-0.003,0.003)
     ax2.yaxis.set_major_formatter(plt.NullFormatter())
     ax2.axes.yaxis.set_ticklabels([])
     plt.plot(x,fit_diff,c='Purple')
     plt.plot([0,10],[0,0],c='Black',ls='--')
     plt.plot([1.115,1.115],[-1,1],c='Black',ls='--')
     plt.savefig('Simulated MCD.png',dpi=200,transparent=False,bbox_inches='tight')
-    plt.show()
+    # plt.show()
 
     return fit_diff
 
@@ -178,7 +188,7 @@ def calc_effective_mass_and_plot(mcd_data,abs_data,max_ev,min_ev,material,correc
     for col in mcd_data:
         if 'deltaA_diff' in col:
             field = col.split("_")[0]
-            if field is not '0':
+            if field != '0':
                 xdata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive='both'),'energy'].values
                 ydata=mcd_data.loc[mcd_data['energy'].between(min_ev, max_ev, inclusive='both'),col].values
                 B_fit=int(field) #used for meV plotting later in zdf
@@ -212,9 +222,9 @@ def calc_effective_mass_and_plot(mcd_data,abs_data,max_ev,min_ev,material,correc
                 #     popt,pcov = optimize.curve_fit(func,xdata,ydata_normalized,p0=-0.00001,method='trf',bounds=(-0.001,-0.000005)) #lsf optimization to spit out zeeman split mev.
 
                 if B_fit < 0:
-                    popt,pcov = optimize.curve_fit(func,xdata,ydata,p0=(0.0003,0.0001),method='trf',bounds=([0.00001,-0.01],[0.00070,0.01])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
+                    popt,pcov = optimize.curve_fit(func,xdata,ydata,p0=(0.0005,0.0001),method='trf',bounds=([0.00001,-0.01],[0.0700,0.01])) #multiple variables: bounds are: ([lower bounds],[upper bounds])
                 elif B_fit > 0:
-                    popt,pcov = optimize.curve_fit(func,xdata,ydata,p0=(-0.0003,-0.0001),method='trf',bounds=([-0.00070,-0.01],[-0.00001,0.01])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
+                    popt,pcov = optimize.curve_fit(func,xdata,ydata,p0=(-0.0005,-0.0001),method='trf',bounds=([-0.0700,-0.01],[-0.00001,0.01])) #lsf optimization to spit out zeeman split mev, guessing ~0.05 meV
 
                 # print(popt)
                 # print(pcov) #list of residuals
@@ -257,7 +267,7 @@ def findPeakMax(data,max_ev,min_ev,peak_number,spectra):
     for col in data:
         if 'deltaA_diff' in col or 'absorption' in col or 'absorbance' in col:
             field = col.split("_")[0]
-            if field is not '0':
+            if field != '0':
                 xdata = data.loc[data['energy'].between(min_ev, max_ev, inclusive='both'),'energy'].values
                 ydata = data.loc[data['energy'].between(min_ev, max_ev, inclusive='both'),col].values
                 try:
@@ -305,6 +315,8 @@ def convertToCSV(data, spectra):
         csv_df.insert(0,'energy', [1240/x for x in csv_df['wavelength']])
     except KeyError:
         print("Did you type in the correct folder?")
+    # print(csv_df)
+    # sys.exit()
     csv_df.set_index('wavelength',inplace=True)
     return csv_df
 
